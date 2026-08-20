@@ -63,6 +63,21 @@ line-length = 100
 src = ["src", "tests"]
 target-version = "py311"
 
+[tool.ruff.lint]
+# `S` — flake8-bandit — is ON, and it is the one addition worth arguing for: this
+# package handles a credential, builds an HMAC, and opens a URL. Security lint
+# belongs on exactly this code.
+#
+# It also makes the two `# noqa: S310` in _runtime.py MEANINGFUL. Without `S`
+# selected, ruff reports them as unused directives (RUF100) and the obvious fix
+# is to delete them — which quietly removes a security annotation because a
+# linter was not looking for it.
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "N", "C4", "PT", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+# pytest's whole idiom is bare `assert`. S101 would fail every test file.
+"tests/*" = ["S101"]
+
 [tool.mypy]
 python_version = "3.11"
 packages = ["fancy_stripe"]

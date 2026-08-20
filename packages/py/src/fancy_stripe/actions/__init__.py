@@ -5,7 +5,7 @@
 # being rejected, because it works until it silently does not. Fix
 # provider/actions/ (or weaver's template/) and regenerate:
 #
-#     npm run provider -- stripe
+# npm run provider -- stripe
 
 from .customer_create import customer_create
 from .payment_intent_create import payment_intent_create

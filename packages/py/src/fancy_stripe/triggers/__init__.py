@@ -5,7 +5,7 @@
 # being rejected, because it works until it silently does not. Fix
 # provider/triggers/ (or weaver's template/) and regenerate:
 #
-#     npm run provider -- stripe
+# npm run provider -- stripe
 
 from . import webhook
 

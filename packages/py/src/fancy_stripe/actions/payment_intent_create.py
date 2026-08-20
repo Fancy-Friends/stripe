@@ -1,11 +1,13 @@
 # GENERATED FILE — do not edit.
 #
-# Emitted from provider/actions/payment-intent-create.json by weaver's generator.
+# Emitted from provider/actions/payment-intent-create.json by weaver's
+# generator.
 # A hand-edit here is destroyed by the next protocol sync, which is worse than
 # being rejected, because it works until it silently does not. Fix
-# provider/actions/payment-intent-create.json (or weaver's template/) and regenerate:
+# provider/actions/payment-intent-create.json (or weaver's template/) and
+# regenerate:
 #
-#     npm run provider -- stripe
+# npm run provider -- stripe
 
 """Create a Stripe PaymentIntent — take a payment.
 
@@ -20,7 +22,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .._runtime import CallResult, ConnectorConfigError, call
+from .._runtime import CallResult, ConnectorConfigError, Mode, call
 from ..service import descriptor
 
 OPERATION = "payment_intent_create"
@@ -39,15 +41,20 @@ def body(config: dict[str, Any]) -> dict[str, Any]:
             _n = None
         if _n is None or _n != int(_n) or _n < 1:
             raise ConnectorConfigError(
-                f'payment_intent_create: "amount" must be a positive whole number in the currency\'s smallest unit (1000 = $10.00), got {amount!r}.'
+                "payment_intent_create: \"amount\" must be a positive whole number in the "
+                "currency's smallest unit (1000 = $10.00), got "
+                f"{amount!r}."
             )
     else:
         raise ConnectorConfigError(
-            'payment_intent_create: "amount" is required (Amount).'
+            "payment_intent_create: \"amount\" is required (Amount)."
         )
 
     out: dict[str, Any] = {}
     _value = config.get("amount")
+    if _value is None or _value == "":
+        raise ConnectorConfigError("payment_intent_create: \"amount\" is required.")
+
     out["amount"] = int(float(_value))
     _value = config.get("currency")
     out["currency"] = str(_value).lower() if _value is not None and _value != "" else "usd"
@@ -69,7 +76,7 @@ def payment_intent_create(
     config: dict[str, Any],
     *,
     credentials: dict[str, str | None] | None = None,
-    mode: str = "auto",
+    mode: Mode = "auto",
     connection_id: str | None = None,
     # Derived from the run and the step, never fresh. A retried durable run must
     # send the same key or Stripe creates a second one.

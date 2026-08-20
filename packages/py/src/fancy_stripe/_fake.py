@@ -1,11 +1,13 @@
 # GENERATED FILE — do not edit.
 #
-# Emitted from provider/manifest.json (via weaver's template/embed/py/_fake.py) by weaver's generator.
+# Emitted from provider/manifest.json (via weaver's
+# template/embed/py/_fake.py) by weaver's generator.
 # A hand-edit here is destroyed by the next protocol sync, which is worse than
 # being rejected, because it works until it silently does not. Fix
-# provider/manifest.json (via weaver's template/embed/py/_fake.py) (or weaver's template/) and regenerate:
+# provider/manifest.json (via weaver's template/embed/py/_fake.py) (or
+# weaver's template/) and regenerate:
 #
-#     npm run provider -- stripe
+# npm run provider -- stripe
 
 """Deterministic faker values — bit-for-bit with TypeScript and PHP.
 
@@ -50,6 +52,13 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 MASK = 0xFFFFFFFF
+
+# `FakeValues.int` is part of the cross-runtime faker API — `fake.int(min, max)`
+# in TypeScript, PHP and here — so the method keeps that name. Inside the class
+# body it then shadows the builtin, and every LATER annotation reading `int`
+# resolves to the method instead of the type. This alias is what the annotations
+# after it use.
+_Int = int
 
 #: The instant every faker counts from. A constant rather than the clock,
 #: because a fixture asserting on ``created`` must not start failing tomorrow.
@@ -134,7 +143,7 @@ class FakeValues:
 
         return state
 
-    def hex(self, length: int) -> str:
+    def hex(self, length: _Int) -> str:
         """A stable lowercase hex string of ``length`` characters."""
         out = ""
         while len(out) < length:
@@ -154,7 +163,7 @@ class FakeValues:
         """Pick a stable element of a list."""
         return options[self._next() % len(options)]
 
-    def timestamp(self, offset_seconds: int = 0) -> str:
+    def timestamp(self, offset_seconds: _Int = 0) -> str:
         """A fixed ISO-8601 instant, offset by whole seconds. Never ``now()``."""
         base = datetime(2026, 1, 1, tzinfo=UTC) + timedelta(seconds=offset_seconds)
 

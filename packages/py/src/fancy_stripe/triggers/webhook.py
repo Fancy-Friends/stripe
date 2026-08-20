@@ -5,7 +5,7 @@
 # being rejected, because it works until it silently does not. Fix
 # provider/triggers/webhook.json (or weaver's template/) and regenerate:
 #
-#     npm run provider -- stripe
+# npm run provider -- stripe
 
 """Stripe's webhook trigger — the delivery contract.
 
@@ -23,7 +23,11 @@ from ..service import SERVICE
 
 OPERATION = "webhook"
 DELIVERY = "webhook"
-SETUP = "Add an endpoint in the Stripe dashboard (or via POST /v1/webhook_endpoints) pointing at the route your host mounts for this trigger, then put the endpoint's signing secret on the connection as `webhookSecret`."
+SETUP = (
+    "Add an endpoint in the Stripe dashboard (or via POST /v1/webhook_endpoints) pointing at "
+    "the route your host mounts for this trigger, then put the endpoint's signing secret on "
+    "the connection as `webhookSecret`."
+)
 SIGNATURE_HEADER = "Stripe-Signature"
 ALGORITHM = "sha256"
 SIGNATURE_ENCODING = "hex"
@@ -31,8 +35,10 @@ SIGNATURE_ENCODING = "hex"
 # The provider's documented replay window, in seconds.
 TOLERANCE = 300
 
-# The credential holding the signing secret.
-SECRET_CREDENTIAL = "webhookSecret"
+# WHICH credential holds the signing secret — a field name, not a secret.
+# S105 reads any string assigned to a *_CREDENTIAL name as a hardcoded
+# password; here the value is the key to look up on the connection.
+SECRET_CREDENTIAL = "webhookSecret"  # noqa: S105
 
 
 def parse_signature(raw: str) -> tuple[str | None, str | None]:

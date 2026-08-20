@@ -5,7 +5,7 @@
 # being rejected, because it works until it silently does not. Fix
 # provider/manifest.json (or weaver's template/) and regenerate:
 #
-#     npm run provider -- stripe
+# npm run provider -- stripe
 
 """Stripe for Python.
 
@@ -17,27 +17,27 @@ dependency.
 from __future__ import annotations
 
 from ._fake import FakeValues
-from .faker import respond
-from .service import CONNECTOR_API_VERSION, BASE_URLS, REQUIRES, SANDBOX, SERVICE, TITLE, descriptor
 from .actions.customer_create import customer_create
 from .actions.payment_intent_create import payment_intent_create
 from .actions.refund_create import refund_create
+from .faker import respond
+from .service import BASE_URLS, CONNECTOR_API_VERSION, REQUIRES, SANDBOX, SERVICE, TITLE, descriptor
 from .triggers import webhook
 
 __version__ = "0.1.0"
 
 __all__ = [
-    "CONNECTOR_API_VERSION",
     "BASE_URLS",
+    "CONNECTOR_API_VERSION",
     "REQUIRES",
     "SANDBOX",
     "SERVICE",
     "TITLE",
     "FakeValues",
-    "descriptor",
-    "respond",
     "customer_create",
+    "descriptor",
     "payment_intent_create",
     "refund_create",
+    "respond",
     "webhook",
 ]

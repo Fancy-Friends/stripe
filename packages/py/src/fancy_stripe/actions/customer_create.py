@@ -3,9 +3,10 @@
 # Emitted from provider/actions/customer-create.json by weaver's generator.
 # A hand-edit here is destroyed by the next protocol sync, which is worse than
 # being rejected, because it works until it silently does not. Fix
-# provider/actions/customer-create.json (or weaver's template/) and regenerate:
+# provider/actions/customer-create.json (or weaver's template/) and
+# regenerate:
 #
-#     npm run provider -- stripe
+# npm run provider -- stripe
 
 """Create a Stripe customer.
 
@@ -19,7 +20,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .._runtime import CallResult, ConnectorConfigError, call
+from .._runtime import CallResult, ConnectorConfigError, Mode, call
 from ..service import descriptor
 
 OPERATION = "customer_create"
@@ -32,11 +33,14 @@ def body(config: dict[str, Any]) -> dict[str, Any]:
     """Build the form body for one call, failing loudly and specifically."""
     if config.get("email") is None or config.get("email") == "":
         raise ConnectorConfigError(
-            'customer_create: "email" is required (Email).'
+            "customer_create: \"email\" is required (Email)."
         )
 
     out: dict[str, Any] = {}
     _value = config.get("email")
+    if _value is None or _value == "":
+        raise ConnectorConfigError("customer_create: \"email\" is required.")
+
     out["email"] = str(_value).strip()
     _value = config.get("name")
     if _value is not None and _value != "":
@@ -53,7 +57,7 @@ def customer_create(
     config: dict[str, Any],
     *,
     credentials: dict[str, str | None] | None = None,
-    mode: str = "auto",
+    mode: Mode = "auto",
     connection_id: str | None = None,
     # Derived from the run and the step, never fresh. A retried durable run must
     # send the same key or Stripe creates a second one.

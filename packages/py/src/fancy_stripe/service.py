@@ -5,7 +5,7 @@
 # being rejected, because it works until it silently does not. Fix
 # provider/manifest.json (or weaver's template/) and regenerate:
 #
-#     npm run provider -- stripe
+# npm run provider -- stripe
 
 """Stripe, as one service descriptor shared by every Stripe operation.
 

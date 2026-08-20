@@ -5,7 +5,7 @@
 # being rejected, because it works until it silently does not. Fix
 # provider/fixtures/ (or weaver's template/) and regenerate:
 #
-#     npm run provider -- stripe
+# npm run provider -- stripe
 
 """The Stripe faker.
 
@@ -28,7 +28,11 @@ def _customer_create(config: dict[str, Any], fake: FakeValues) -> Any:
     return {
         "id": fake.id("cus"),
         "object": "customer",
-        "email": (str(_v) if (_v := config.get("email")) is not None and _v != "" else "ada@example.test"),
+        "email": (
+            str(_v)
+            if (_v := config.get("email")) is not None and _v != ""
+            else "ada@example.test"
+        ),
         "name": (str(_v) if (_v := config.get("name")) is not None and _v != "" else None),
         "created": 1767225600,
         "livemode": False,
@@ -39,16 +43,36 @@ def _payment_intent_create(config: dict[str, Any], fake: FakeValues) -> Any:
     out: dict[str, Any] = {}
     out["id"] = fake.id("pi")
     out["object"] = "payment_intent"
-    out["amount"] = (int(float(_v)) if (_v := config.get("amount")) is not None and _v != "" else fake.int(500, 25000))
+    out["amount"] = (
+        int(float(_v))
+        if (_v := config.get("amount")) is not None and _v != ""
+        else fake.int(500, 25000)
+    )
     out["amount_received"] = out["amount"]
-    out["currency"] = (str(_v) if (_v := config.get("currency")) is not None and _v != "" else "usd")
-    out["customer"] = (str(_v) if (_v := config.get("customer")) is not None and _v != "" else None)
-    out["description"] = (str(_v) if (_v := config.get("description")) is not None and _v != "" else None)
+    out["currency"] = (
+        str(_v)
+        if (_v := config.get("currency")) is not None and _v != ""
+        else "usd"
+    )
+    out["customer"] = (
+        str(_v)
+        if (_v := config.get("customer")) is not None and _v != ""
+        else None
+    )
+    out["description"] = (
+        str(_v)
+        if (_v := config.get("description")) is not None and _v != ""
+        else None
+    )
     out["status"] = "succeeded"
     out["livemode"] = False
     out["created"] = 1767225600
     out["latest_charge"] = fake.id("ch")
-    out["receipt_email"] = (str(_v) if (_v := config.get("receiptEmail")) is not None and _v != "" else None)
+    out["receipt_email"] = (
+        str(_v)
+        if (_v := config.get("receiptEmail")) is not None and _v != ""
+        else None
+    )
 
     return out
 
@@ -57,9 +81,17 @@ def _refund_create(config: dict[str, Any], fake: FakeValues) -> Any:
     return {
         "id": fake.id("re"),
         "object": "refund",
-        "amount": (int(float(_v)) if (_v := config.get("amount")) is not None and _v != "" else fake.int(500, 25000)),
+        "amount": (
+            int(float(_v))
+            if (_v := config.get("amount")) is not None and _v != ""
+            else fake.int(500, 25000)
+        ),
         "currency": "usd",
-        "payment_intent": (str(_v) if (_v := config.get("paymentIntent")) is not None and _v != "" else fake.id("pi")),
+        "payment_intent": (
+            str(_v)
+            if (_v := config.get("paymentIntent")) is not None and _v != ""
+            else fake.id("pi")
+        ),
         "reason": (str(_v) if (_v := config.get("reason")) is not None and _v != "" else None),
         "status": "succeeded",
         "created": 1767225600,
@@ -108,7 +140,11 @@ def _webhook(config: dict[str, Any], fake: FakeValues) -> Any:
     return {
         "id": fake.id("evt"),
         "object": "event",
-        "type": (str(_v) if (_v := config.get("sample")) is not None and _v != "" else "payment_intent.succeeded"),
+        "type": (
+            str(_v)
+            if (_v := config.get("sample")) is not None and _v != ""
+            else "payment_intent.succeeded"
+        ),
         "api_version": "2026-01-01",
         "created": 1767225600,
         "livemode": False,

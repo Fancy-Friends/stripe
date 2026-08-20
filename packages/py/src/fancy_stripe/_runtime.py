@@ -1,11 +1,13 @@
 # GENERATED FILE — do not edit.
 #
-# Emitted from provider/manifest.json (via weaver's template/embed/py/_runtime.py) by weaver's generator.
+# Emitted from provider/manifest.json (via weaver's
+# template/embed/py/_runtime.py) by weaver's generator.
 # A hand-edit here is destroyed by the next protocol sync, which is worse than
 # being rejected, because it works until it silently does not. Fix
-# provider/manifest.json (via weaver's template/embed/py/_runtime.py) (or weaver's template/) and regenerate:
+# provider/manifest.json (via weaver's template/embed/py/_runtime.py) (or
+# weaver's template/) and regenerate:
 #
-#     npm run provider -- stripe
+# npm run provider -- stripe
 
 """The minimum connector runtime, in the standard library only.
 
@@ -337,7 +339,9 @@ def verify_hmac(
 
     if tolerance is not None:
         if not timestamp:
-            return Verification(False, "the delivery carried no timestamp, and this scheme signs one")
+            return Verification(
+                False, "the delivery carried no timestamp, and this scheme signs one"
+            )
         try:
             sent = int(float(timestamp))
         except (TypeError, ValueError):

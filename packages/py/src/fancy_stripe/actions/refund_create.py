@@ -5,7 +5,7 @@
 # being rejected, because it works until it silently does not. Fix
 # provider/actions/refund-create.json (or weaver's template/) and regenerate:
 #
-#     npm run provider -- stripe
+# npm run provider -- stripe
 
 """Refund a Stripe payment, in full or in part.
 
@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .._runtime import CallResult, ConnectorConfigError, call
+from .._runtime import CallResult, ConnectorConfigError, Mode, call
 from ..service import descriptor
 
 OPERATION = "refund_create"
@@ -32,7 +32,7 @@ def body(config: dict[str, Any]) -> dict[str, Any]:
     """Build the form body for one call, failing loudly and specifically."""
     if config.get("paymentIntent") is None or config.get("paymentIntent") == "":
         raise ConnectorConfigError(
-            'refund_create: "paymentIntent" is required (Payment intent).'
+            "refund_create: \"paymentIntent\" is required (Payment intent)."
         )
 
     amount = config.get("amount")
@@ -43,11 +43,16 @@ def body(config: dict[str, Any]) -> dict[str, Any]:
             _n = None
         if _n is None or _n != int(_n) or _n < 1:
             raise ConnectorConfigError(
-                f'refund_create: "amount" must be a positive whole number in the currency\'s smallest unit (1000 = $10.00), or empty for a full refund, got {amount!r}.'
+                "refund_create: \"amount\" must be a positive whole number in the currency's "
+                "smallest unit (1000 = $10.00), or empty for a full refund, got "
+                f"{amount!r}."
             )
 
     out: dict[str, Any] = {}
     _value = config.get("paymentIntent")
+    if _value is None or _value == "":
+        raise ConnectorConfigError("refund_create: \"paymentIntent\" is required.")
+
     out["payment_intent"] = str(_value)
     _value = config.get("amount")
     if _value is not None and _value != "":
@@ -64,7 +69,7 @@ def refund_create(
     config: dict[str, Any],
     *,
     credentials: dict[str, str | None] | None = None,
-    mode: str = "auto",
+    mode: Mode = "auto",
     connection_id: str | None = None,
     # Derived from the run and the step, never fresh. A retried durable run must
     # send the same key or Stripe creates a second one.

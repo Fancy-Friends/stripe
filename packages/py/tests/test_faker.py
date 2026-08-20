@@ -5,7 +5,7 @@
 # being rejected, because it works until it silently does not. Fix
 # provider/fixtures/ (or weaver's template/) and regenerate:
 #
-#     npm run provider -- stripe
+# npm run provider -- stripe
 
 """The golden fixtures — the SAME values the TypeScript and PHP packages
 assert.
