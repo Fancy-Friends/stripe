@@ -1,0 +1,76 @@
+# GENERATED — from weaver's scripts/lib/emit/canary.mjs.
+# Fix it there and re-run `npm run provider -- stripe`; an edit here is
+# destroyed by the next protocol sync.
+
+name: Token canary
+
+# A lapsed token is a SILENT, TOTAL publish outage across every provider repo,
+# and the usual way it is discovered is mid-release — after one of three
+# registries has already taken a version that cannot be taken back.
+#
+# NOTHING HERE PUBLISHES. Each probe authenticates and then asks for something
+# the registry must refuse.
+#
+# It lives in THIS repo rather than in the envelope because organisation secrets
+# do not reach a PRIVATE repository on GitHub's Free plan, and `Fancy-Friends/weaver.agi`
+# is private. It ran there for a week and failed every night with a true
+# statement about the wrong thing.
+#
+# ONE repo hosts it. `friends.json` designates which, and the generator emits it
+# nowhere else — at a hundred providers, one canary per repo would be a hundred
+# nightly probes of the same four secrets.
+on:
+  schedule:
+    # 03:17 UTC. Not on the hour: every scheduled workflow on GitHub fires
+    # there, and the queue at :00 is where a nightly job goes to be an hour late.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      break_it:
+        description: >-
+          Prove the canary can FAIL. Sends a deliberately wrong value for the
+          chosen registry; the run MUST go red. A canary nobody has seen fail is
+          an untested assertion.
+        type: choice
+        default: none
+        options: [none, npm, pypi, packagist]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: token-canary
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    name: the four publishing secrets still work
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      # The classification is unit-tested offline — every response shape,
+      # including each way of being wrong. Running those FIRST means a red
+      # canary is a token problem rather than a canary problem.
+      - name: The canary's judgement is tested
+        run: node --test ops/canary.test.mjs
+
+      - name: Probe every registry
+        env:
+          # `break_it` substitutes a value that cannot work, so the failure path
+          # can be exercised on demand rather than only during an incident.
+          NPM_TOKEN: ${{ inputs.break_it == 'npm' && 'npm_deliberatelyInvalidCanaryToken' || secrets.NPM_TOKEN }}
+          PYPI_TOKEN: ${{ inputs.break_it == 'pypi' && 'pypi-deliberatelyInvalidCanaryToken' || secrets.PYPI_TOKEN }}
+          PACKAGIST_TOKEN: ${{ inputs.break_it == 'packagist' && 'deliberatelyInvalidCanaryToken' || secrets.PACKAGIST_TOKEN }}
+          PACKAGIST_USERNAME: ${{ secrets.PACKAGIST_USERNAME }}
+        run: node ops/token-canary.mjs
+
+      - name: A deliberate break must have gone red
+        if: ${{ success() && inputs.break_it != 'none' }}
+        run: |
+          echo "::error::break_it=${{ inputs.break_it }} was requested and the canary still PASSED."
+          echo "That means this probe cannot detect a bad token, which is worse than having no probe."
+          exit 1
