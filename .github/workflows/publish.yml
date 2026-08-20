@@ -173,12 +173,35 @@ jobs:
       # preference: @particle-academy/stripe-js depends on @particle-academy/stripe-ui at an exact version, so
       # publishing js first puts a package on npm whose dependency does not
       # resolve.
+      # Idempotent BY CHECK, not by hope — the same rule submit-catalogs.mjs
+      # applies to Packagist. A version already on the registry is skipped, so a
+      # re-run after a half-finished release is safe rather than a second
+      # incident, and a tag can follow a package-by-package first release.
+      #
+      # A LOOKUP FAILURE IS NOT A "NO": anything other than a clean hit or a
+      # clean miss stops the job rather than publishing over an unknown state.
       - name: Publish
         if: >-
           github.event_name == 'push' || inputs.only == 'all' ||
           inputs.only == matrix.package
         working-directory: packages/${{ matrix.package }}
-        run: npm publish --access public
+        run: |
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+
+          status=$(curl -s -o /dev/null -w '%{http_code}'             "https://registry.npmjs.org/${name}/${version}")
+
+          if [ "$status" = "200" ]; then
+            echo "${name}@${version} is already on the registry — nothing to do."
+            exit 0
+          fi
+
+          if [ "$status" != "404" ]; then
+            echo "::error::npm answered ${status} for ${name}@${version}; refusing to guess."
+            exit 1
+          fi
+
+          npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -230,7 +253,24 @@ jobs:
       # `twine upload` creates the project on first upload. The token is
       # account-scoped for the same reason npm's is scope-wide: a project-scoped
       # token cannot create a project that does not exist yet.
-      - run: twine upload dist/*
+      - name: Upload unless this version is already there
+        run: |
+          name=$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['name'])")
+          version=$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+
+          status=$(curl -s -o /dev/null -w '%{http_code}'             "https://pypi.org/pypi/${name}/${version}/json")
+
+          if [ "$status" = "200" ]; then
+            echo "${name} ${version} is already on PyPI — nothing to do."
+            exit 0
+          fi
+
+          if [ "$status" != "404" ]; then
+            echo "::error::PyPI answered ${status} for ${name} ${version}; refusing to guess."
+            exit 1
+          fi
+
+          twine upload dist/*
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
