@@ -32,17 +32,17 @@
   },
   "autoload": {
     "psr-4": {
-      "ParticleAcademy\\Stripe\\": "src/"
+      "ParticleAcademy\\Stripe\\": "packages/php/src/"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "ParticleAcademy\\Stripe\\Tests\\": "tests/"
+      "ParticleAcademy\\Stripe\\Tests\\": "packages/php/tests/"
     }
   },
   "scripts": {
     "test": "pest",
-    "lint": "find src tests -name '*.php' -print0 | xargs -0 -n1 php -l",
+    "lint": "find packages/php -name '*.php' -print0 | xargs -0 -n1 php -l",
     "format": "pint"
   },
   "config": {

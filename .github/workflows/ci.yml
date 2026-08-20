@@ -132,9 +132,8 @@ jobs:
   php:
     name: particle-academy/stripe-php
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: packages/php
+    # From the ROOT: composer.json lives there, because Packagist reads the
+    # repository's default branch and refuses a subdirectory package.
     steps:
       - uses: actions/checkout@v5
       - uses: shivammathur/setup-php@v2

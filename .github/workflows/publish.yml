@@ -309,8 +309,8 @@ jobs:
           php-version: "8.4"
           coverage: none
 
-      - working-directory: packages/php
-        run: |
+      # From the ROOT — see ci.yml.
+      - run: |
           composer install --no-interaction --prefer-dist
           composer run test
 
