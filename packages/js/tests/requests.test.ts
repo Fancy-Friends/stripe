@@ -63,7 +63,7 @@ test("customer_create sends POST /v1/customers", async () => {
 
   assert.equal(seen.length, 1);
   assert.equal(seen[0]!.method, "POST");
-  assert.ok(seen[0]!.url.endsWith("/v1/customers"), seen[0]!.url);
+  assert.ok(new URL(seen[0]!.url).pathname.endsWith("/v1/customers"), seen[0]!.url);
 
   assert.deepEqual(
     Object.fromEntries(new URLSearchParams(String(seen[0]!.body ?? ""))),
@@ -97,7 +97,7 @@ test("payment_intent_create sends POST /v1/payment_intents", async () => {
 
   assert.equal(seen.length, 1);
   assert.equal(seen[0]!.method, "POST");
-  assert.ok(seen[0]!.url.endsWith("/v1/payment_intents"), seen[0]!.url);
+  assert.ok(new URL(seen[0]!.url).pathname.endsWith("/v1/payment_intents"), seen[0]!.url);
 
   assert.deepEqual(
     Object.fromEntries(new URLSearchParams(String(seen[0]!.body ?? ""))),
@@ -131,7 +131,7 @@ test("refund_create sends POST /v1/refunds", async () => {
 
   assert.equal(seen.length, 1);
   assert.equal(seen[0]!.method, "POST");
-  assert.ok(seen[0]!.url.endsWith("/v1/refunds"), seen[0]!.url);
+  assert.ok(new URL(seen[0]!.url).pathname.endsWith("/v1/refunds"), seen[0]!.url);
 
   assert.deepEqual(
     Object.fromEntries(new URLSearchParams(String(seen[0]!.body ?? ""))),
