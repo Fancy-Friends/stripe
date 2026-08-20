@@ -189,7 +189,7 @@ jobs:
           name=$(node -p "require('./package.json').name")
           version=$(node -p "require('./package.json').version")
 
-          status=$(curl -s -o /dev/null -w '%{http_code}'             "https://registry.npmjs.org/${name}/${version}")
+          status=$(curl -s -o /dev/null -w '%{http_code}' "https://registry.npmjs.org/${name}/${version}")
 
           if [ "$status" = "200" ]; then
             echo "${name}@${version} is already on the registry — nothing to do."
@@ -214,20 +214,29 @@ jobs:
           name=$(node -p "require('./package.json').name")
           version=$(node -p "require('./package.json').version")
 
-          # npm's registry is read-after-write eventually consistent, so give it
-          # a moment rather than reporting a publish that "failed" a second later.
-          for attempt in 1 2 3 4 5; do
-            if npm view "${name}@${version}" version >/dev/null 2>&1; then
-              echo "${name}@${version} resolves."
+          # The SAME endpoint the publish step checks before publishing.
+          #
+          # `npm view` reads the package-level document, which propagates LATER
+          # than the version document — so it reported a fresh publish as
+          # missing while `/<name>/<version>` already answered 200. Two sources
+          # of truth for "does this exist" disagree exactly when it matters, and
+          # here it turned a successful first publish into a red run.
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            status=$(curl -s -o /dev/null -w '%{http_code}' "https://registry.npmjs.org/${name}/${version}")
+
+            if [ "$status" = "200" ]; then
+              echo "${name}@${version} is on the registry."
               exit 0
             fi
-            sleep 10
+
+            sleep 15
           done
 
-          echo "::error::${name}@${version} was published but does not resolve."
-          echo "If this was the FIRST publish, the likeliest cause is an NPM_TOKEN"
-          echo "scoped to selected packages rather than the whole @particle-academy"
-          echo "scope — such a token cannot create a package that does not exist."
+          echo "::error::${name}@${version} was published and is still not on the registry."
+          echo "If this was the FIRST publish of this package, the likeliest cause is an"
+          echo "NPM_TOKEN scoped to selected packages rather than the whole"
+          echo "@particle-academy scope — such a token cannot create a package that does"
+          echo "not exist yet, and every friends package is new."
           exit 1
 
   pypi:
@@ -258,7 +267,7 @@ jobs:
           name=$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['name'])")
           version=$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
 
-          status=$(curl -s -o /dev/null -w '%{http_code}'             "https://pypi.org/pypi/${name}/${version}/json")
+          status=$(curl -s -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/${name}/${version}/json")
 
           if [ "$status" = "200" ]; then
             echo "${name} ${version} is already on PyPI — nothing to do."
