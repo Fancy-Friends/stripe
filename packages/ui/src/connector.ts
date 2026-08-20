@@ -72,24 +72,17 @@
  * rather than reimplemented per node.
  */
 
-import type { ConfigField, NodeKindDefinition } from "@particle-academy/fancy-flow/engine";
+import type {
+  ConfigField,
+  NodeKindDefinition,
+  OutputField,
+} from "@particle-academy/fancy-flow/engine";
 
-/**
- * One declared field of a node's output.
- *
- * DERIVED from `NodeKindDefinition` rather than imported, because
- * `@particle-academy/fancy-flow/engine` declares `OutputField` and does not
- * re-export it (0.47.0). Deriving keeps ONE definition: if fancy-flow changes
- * the shape, this follows, where a hand-written copy would quietly disagree —
- * and a wrong `type` here means the variable picker offers an author a field
- * that resolves to null at run time, with the run still green.
- *
- * Delete this and import the type directly the moment `/engine` exports it.
- */
-export type OutputField = Extract<
-  NonNullable<NodeKindDefinition["outputShape"]>,
-  readonly unknown[]
->[number];
+// `OutputField` was DERIVED here until fancy-flow 0.47.1, because /engine
+// declared it and did not export it. It is exported now, so it is imported:
+// keeping the derivation would leave a second definition of a type the package
+// owns — the very thing the derivation existed to avoid.
+export type { OutputField };
 
 /** The domains the catalogue is grouped by. Mirrors the plan's taxonomy. */
 export type ConnectorDomain =

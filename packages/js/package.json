@@ -48,11 +48,11 @@
     "prepublishOnly": "tsup"
   },
   "dependencies": {
-    "@particle-academy/fancy-connector-core": ">=0.3.0 <2.0",
+    "@particle-academy/fancy-connector-core": ">=0.3.1 <2.0",
     "@particle-academy/stripe-ui": "0.1.0"
   },
   "peerDependencies": {
-    "@particle-academy/fancy-flow": ">=0.47.0 <2.0"
+    "@particle-academy/fancy-flow": ">=0.47.1 <2.0"
   },
   "peerDependenciesMeta": {
     "@particle-academy/fancy-flow": {
@@ -60,7 +60,7 @@
     }
   },
   "devDependencies": {
-    "@particle-academy/fancy-flow": ">=0.47.0 <2.0",
+    "@particle-academy/fancy-flow": ">=0.47.1 <2.0",
     "@types/node": "^26.2.0",
     "tsup": "^8.5.0",
     "tsx": "^4.19.0",

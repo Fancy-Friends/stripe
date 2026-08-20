@@ -65,7 +65,7 @@ export async function stripePaymentIntentCreate(options: PaymentIntentCreateOpti
     config,
     input: options.input,
     ...(options.credentials === undefined ? {} : { credentials: options.credentials }),
-    ...(options.mode === undefined || options.mode === "auto" ? {} : { mode: options.mode }),
+    ...(options.mode === undefined ? {} : { mode: options.mode }),
     ...(options.connectionId === undefined ? {} : { connectionId: options.connectionId }),
     ...(options.attempts === undefined ? {} : { attempts: options.attempts }),
     ...(options.transport === undefined ? {} : { transport: options.transport }),
