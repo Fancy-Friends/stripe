@@ -1,0 +1,72 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fancy-stripe"
+version = "0.1.0"
+description = "Stripe for Python — the service descriptor, its faker, its webhook verification, and one function per operation. Plain HTTP; no vendor SDK."
+readme = "README.md"
+# 3.11 matches fancy-flow-py's floor: 3.10 reaches end of life on 2026-10-31,
+# and a floor that dies before the package's second release is not a floor.
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Particle Academy" }]
+keywords = ["stripe", "payments", "connector", "api", "fancy-flow", "particle-academy"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
+]
+
+# ZERO runtime dependencies, and that is a design constraint rather than an
+# accident. There is no Python twin of fancy-connector-core to depend on, and a
+# vendor SDK is third-party code subject to the kit's full approval bar — one
+# SDK per provider is hundreds of dependencies nobody is tracking. The HTTP is
+# stdlib `urllib`; the HMAC is stdlib `hmac`.
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/Fancy-Friends/stripe"
+Issues = "https://github.com/Fancy-Friends/stripe/issues"
+Source = "https://github.com/Fancy-Friends/stripe"
+
+[dependency-groups]
+# Not optional. A package with no way to run its tests reports green by doing
+# nothing, which is the one defect that hides itself.
+test = ["pytest>=8.0"]
+lint = ["ruff>=0.16"]
+typecheck = ["mypy>=1.11"]
+dev = [{ include-group = "test" }, { include-group = "lint" }, { include-group = "typecheck" }]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fancy_stripe"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/tests", "/README.md", "/CHANGELOG.md", "/LICENSE"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# importlib mode pairs with src-layout: the working tree is never on sys.path,
+# so the tests exercise the INSTALLED package. Under the default mode a missing
+# py.typed or an unshipped file passes locally and breaks for every user.
+addopts = "--import-mode=importlib -ra"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+packages = ["fancy_stripe"]
+mypy_path = "src"
+strict = true
+disallow_any_expr = false
+disallow_any_explicit = false

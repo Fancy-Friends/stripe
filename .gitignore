@@ -1,0 +1,23 @@
+node_modules/
+dist/
+vendor/
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Lockfiles are NOT source of a generated repo.
+#
+# The generator cannot emit one -- a lockfile is the result of a network
+# resolve -- and "a provider repo must be generated and re-generatable" is the
+# constraint the whole estate rests on. At a few hundred repos, a committed
+# lockfile each is a few hundred files nothing can regenerate and a few hundred
+# Dependabot surfaces.
+#
+# The trade is real and worth stating: CI resolves fresh on every run, so an
+# upstream release inside the declared range can break a build with no change
+# here. That is early warning rather than a surprise at publish time, and the
+# ranges are deliberately narrow (>=X <2.0, never a caret on a 0.x).
+composer.lock
+package-lock.json

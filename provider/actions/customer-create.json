@@ -1,0 +1,69 @@
+{
+  "operation": "customer_create",
+  "kind": "customer",
+  "title": "Stripe customer",
+  "description": "Create a Stripe customer.",
+  "summary": "create a customer",
+  "icon": "◆",
+  "docs": "https://docs.stripe.com/api/customers/create",
+
+  "sideEffects": "unsafe-to-replay",
+  "idempotency": "required",
+  "$idempotencyComment": "Creating a customer twice is not a double charge, but it is a duplicate record that later payments attach to inconsistently -- and the key costs nothing.",
+
+  "request": {
+    "method": "POST",
+    "path": "/v1/customers",
+    "encoding": "form"
+  },
+
+  "config": [
+    {
+      "type": "expression",
+      "key": "email",
+      "label": "Email",
+      "example": "{{ $json.email }}",
+      "required": true,
+      "send": { "as": "email", "value": "string", "transform": "trim" }
+    },
+    {
+      "type": "expression",
+      "key": "name",
+      "label": "Name",
+      "example": "{{ $json.name }}",
+      "send": { "as": "name", "value": "string", "omitEmpty": true }
+    },
+    {
+      "type": "expression",
+      "key": "phone",
+      "label": "Phone",
+      "example": "{{ $json.phone }}",
+      "send": { "as": "phone", "value": "string", "omitEmpty": true }
+    },
+    {
+      "type": "keyvalue",
+      "key": "metadata",
+      "label": "Metadata",
+      "keyPlaceholder": "user_id",
+      "valuePlaceholder": "{{ $json.user_id }}",
+      "send": { "as": "metadata", "value": "keyvalue", "encoding": "bracket" }
+    }
+  ],
+
+  "defaultConfig": { "mode": "auto" },
+
+  "outputShape": [
+    { "path": "mode", "type": "string", "description": "Which estate this ran against: fake, sandbox or live." },
+    { "path": "connection", "type": "string", "description": "The connection id that was used." },
+    { "path": "data.id", "type": "string", "description": "Customer id (cus_…)." },
+    { "path": "data.email", "type": "string", "description": "The customer's email." },
+    { "path": "data.name", "type": "string", "description": "The customer's name, when one was given." },
+    { "path": "data.created", "type": "number", "description": "Unix seconds." },
+    { "path": "data.livemode", "type": "boolean", "description": "FALSE for test-mode records." }
+  ],
+
+  "contract": {
+    "sends": ["email", "name", "phone", "metadata"],
+    "reads": ["id", "email", "name", "created", "livemode"]
+  }
+}

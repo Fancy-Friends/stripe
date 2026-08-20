@@ -1,0 +1,77 @@
+{
+  "operation": "refund_create",
+  "kind": "refund",
+  "title": "Stripe refund",
+  "description": "Refund a Stripe payment, in full or in part.",
+  "summary": "refund a payment",
+  "icon": "◇",
+  "docs": "https://docs.stripe.com/api/refunds/create",
+
+  "sideEffects": "unsafe-to-replay",
+  "idempotency": "required",
+
+  "request": {
+    "method": "POST",
+    "path": "/v1/refunds",
+    "encoding": "form"
+  },
+
+  "config": [
+    {
+      "type": "expression",
+      "key": "paymentIntent",
+      "label": "Payment intent",
+      "example": "{{ $json.data.id }}",
+      "description": "The pi_… to refund. Usually carried forward from a Stripe payment node.",
+      "required": true,
+      "send": { "as": "payment_intent", "value": "string" }
+    },
+    {
+      "type": "expression",
+      "key": "amount",
+      "label": "Amount",
+      "example": "{{ $json.data.amount }}",
+      "description": "In the currency's smallest unit. Leave empty to refund the whole payment.",
+      "send": { "as": "amount", "value": "integer", "min": 1, "omitEmpty": true, "error": "\"amount\" must be a positive whole number in the currency's smallest unit (1000 = $10.00), or empty for a full refund" }
+    },
+    {
+      "type": "select",
+      "key": "reason",
+      "label": "Reason",
+      "options": [
+        { "value": "", "label": "Not stated" },
+        { "value": "duplicate", "label": "Duplicate" },
+        { "value": "fraudulent", "label": "Fraudulent" },
+        { "value": "requested_by_customer", "label": "Requested by customer" }
+      ],
+      "description": "Stripe accepts only these three values. Anything else is rejected at the API.",
+      "send": { "as": "reason", "value": "string", "omitEmpty": true }
+    },
+    {
+      "type": "keyvalue",
+      "key": "metadata",
+      "label": "Metadata",
+      "keyPlaceholder": "refund_of",
+      "valuePlaceholder": "{{ $json.order_id }}",
+      "send": { "as": "metadata", "value": "keyvalue", "encoding": "bracket" }
+    }
+  ],
+
+  "defaultConfig": { "mode": "auto" },
+
+  "outputShape": [
+    { "path": "mode", "type": "string", "description": "Which estate this ran against: fake, sandbox or live." },
+    { "path": "connection", "type": "string", "description": "The connection id that was used." },
+    { "path": "data.id", "type": "string", "description": "Refund id (re_…)." },
+    { "path": "data.status", "type": "string", "description": "succeeded, pending, failed, canceled." },
+    { "path": "data.amount", "type": "number", "description": "Amount refunded, in the currency's smallest unit." },
+    { "path": "data.currency", "type": "string", "description": "Three-letter ISO currency code." },
+    { "path": "data.payment_intent", "type": "string", "description": "The payment this refunded." },
+    { "path": "data.reason", "type": "string", "description": "The stated reason, when one was given." }
+  ],
+
+  "contract": {
+    "sends": ["payment_intent", "amount", "reason", "metadata"],
+    "reads": ["id", "status", "amount", "currency", "payment_intent", "reason"]
+  }
+}

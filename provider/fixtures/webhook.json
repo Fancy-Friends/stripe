@@ -1,0 +1,55 @@
+{
+  "$comment": "A sample event per type. The point is the SHAPE — an author wiring {{ $json.data.object.amount }} against a fake must find the same path when a real delivery arrives. So these mirror Stripe's envelope exactly: id, type, created, livemode, and the object under data.object.",
+  "operation": "webhook",
+
+  "variants": {
+    "on": "sample",
+    "default": "payment_intent.succeeded",
+    "cases": {
+      "payment_intent.succeeded": {
+        "id": { "$fake": "id", "prefix": "pi" },
+        "object": "payment_intent",
+        "amount": 2500,
+        "amount_received": 2500,
+        "currency": "usd",
+        "status": "succeeded"
+      },
+      "charge.refunded": {
+        "id": { "$fake": "id", "prefix": "ch" },
+        "object": "charge",
+        "amount": 2500,
+        "amount_refunded": 2500,
+        "currency": "usd",
+        "status": "succeeded",
+        "refunded": true
+      },
+      "checkout.session.completed": {
+        "id": { "$fake": "id", "prefix": "cs" },
+        "object": "checkout.session",
+        "amount_total": 2500,
+        "currency": "usd",
+        "status": "complete",
+        "payment_status": "paid",
+        "customer_email": "ada@example.test"
+      },
+      "customer.subscription.deleted": {
+        "id": { "$fake": "id", "prefix": "sub" },
+        "object": "subscription",
+        "status": "canceled",
+        "customer": { "$fake": "id", "prefix": "cus" },
+        "canceled_at": 1767225600
+      }
+    }
+  },
+
+  "response": {
+    "id": { "$fake": "id", "prefix": "evt" },
+    "object": "event",
+    "type": { "$config": "sample", "as": "string", "default": "payment_intent.succeeded" },
+    "api_version": "2026-01-01",
+    "created": 1767225600,
+    "livemode": false,
+    "$livemodeComment": "Never `true`. A faked event that claimed to be live money would make the downstream guard — \"only act when livemode\" — untestable, which is the one branch you most want covered.",
+    "data": { "object": { "$variant": true } }
+  }
+}

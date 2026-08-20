@@ -1,0 +1,11 @@
+{
+  "operation": "customer_create",
+  "response": {
+    "id": { "$fake": "id", "prefix": "cus" },
+    "object": "customer",
+    "email": { "$config": "email", "as": "string", "default": "ada@example.test" },
+    "name": { "$config": "name", "as": "string", "orNull": true },
+    "created": 1767225600,
+    "livemode": false
+  }
+}

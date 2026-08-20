@@ -1,0 +1,14 @@
+{
+  "operation": "refund_create",
+  "response": {
+    "id": { "$fake": "id", "prefix": "re" },
+    "object": "refund",
+    "amount": { "$config": "amount", "as": "integer", "fallback": { "$fake": "int", "min": 500, "max": 25000 } },
+    "currency": "usd",
+    "$currencyComment": "A refund has no currency field to configure — it inherits the payment's. The ported faker read `config.currency ?? \"usd\"` against a node that never declared `currency`, so it always produced this literal.",
+    "payment_intent": { "$config": "paymentIntent", "as": "string", "fallback": { "$fake": "id", "prefix": "pi" } },
+    "reason": { "$config": "reason", "as": "string", "orNull": true },
+    "status": "succeeded",
+    "created": 1767225600
+  }
+}

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    GENERATED from weaver's template/packages/php/phpunit.xml — fix it there.
+
+    Without this, Pest has no testsuite to find and reports success having run
+    nothing — the same defect as a package with no `scripts.test`, wearing a
+    green tick.
+-->
+<phpunit
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="./vendor/phpunit/phpunit/phpunit.xsd"
+    bootstrap="vendor/autoload.php"
+    colors="true"
+    failOnWarning="true"
+    failOnRisky="true"
+    beStrictAboutOutputDuringTests="true"
+>
+    <testsuites>
+        <testsuite name="Stripe">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+
+    <source>
+        <include>
+            <directory>src</directory>
+        </include>
+    </source>
+</phpunit>

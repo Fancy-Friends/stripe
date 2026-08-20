@@ -1,0 +1,46 @@
+{
+  "$comment": "THE hand-written part. Four packages -- ui, js, php, py -- are generated from this directory and are never edited. Fix this file, then regenerate.",
+
+  "connectorApi": 1,
+
+  "service": "stripe",
+  "title": "Stripe",
+  "domain": "payments",
+  "docs": "https://docs.stripe.com/api",
+
+  "auth": "api_key",
+  "requires": ["secretKey"],
+  "authorize": {
+    "kind": "bearer",
+    "credential": "secretKey",
+    "$comment": "Bearer, not Basic. Stripe accepts the key as a Basic username too, and both are documented, but one spelling in one place is one fewer thing to get subtly wrong."
+  },
+
+  "sandbox": "credential",
+  "baseUrls": {
+    "live": "https://api.stripe.com",
+    "sandbox": "https://api.stripe.com"
+  },
+  "sandboxNote": "Stripe's test estate is selected by the KEY, not the URL -- api.stripe.com serves both. A live key sent to a node whose mode says \"sandbox\" reaches the real ledger and succeeds. Nothing in the request distinguishes them, which is exactly why credentials sit on the connection rather than on twelve separate nodes.",
+
+  "idempotencyHeader": "Idempotency-Key",
+  "idempotencyNote": "Retried durable runs MUST not create a second charge. This header is what makes `unsafe-to-replay` recoverable rather than merely forbidden.",
+
+  "encoding": "form",
+
+  "credentialFields": [
+    {
+      "key": "secretKey",
+      "label": "Secret key",
+      "secret": true,
+      "help": "sk_test_... for the test estate, sk_live_... for the real ledger. The key -- not the URL -- decides which one you reach."
+    },
+    {
+      "key": "webhookSecret",
+      "label": "Webhook signing secret",
+      "secret": true,
+      "optional": true,
+      "help": "whsec_... from the endpoint you added in the Stripe dashboard. Required only by the webhook trigger."
+    }
+  ]
+}

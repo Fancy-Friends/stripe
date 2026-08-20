@@ -1,0 +1,19 @@
+{
+  "$comment": "Shapes, not behaviour. The goal is that a downstream node sees the field NAMES Stripe actually publishes, so an author can wire {{ $json.data.id }} against a fake and have it keep working against the real thing.",
+  "operation": "payment_intent_create",
+  "response": {
+    "id": { "$fake": "id", "prefix": "pi" },
+    "object": "payment_intent",
+    "amount": { "$config": "amount", "as": "integer", "fallback": { "$fake": "int", "min": 500, "max": 25000 } },
+    "amount_received": { "$ref": "amount" },
+    "currency": { "$config": "currency", "as": "string", "default": "usd" },
+    "customer": { "$config": "customer", "as": "string", "orNull": true },
+    "description": { "$config": "description", "as": "string", "orNull": true },
+    "status": "succeeded",
+    "livemode": false,
+    "$livemodeComment": "Not decoration. It is the field a downstream branch reads to refuse to act on test data, and a faker that reported `true` would make that branch untestable.",
+    "created": 1767225600,
+    "latest_charge": { "$fake": "id", "prefix": "ch" },
+    "receipt_email": { "$config": "receiptEmail", "as": "string", "orNull": true }
+  }
+}

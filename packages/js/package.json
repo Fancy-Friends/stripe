@@ -1,0 +1,85 @@
+{
+  "name": "@particle-academy/stripe-js",
+  "version": "0.1.0",
+  "description": "Stripe for Node — the service descriptor, its faker, its webhook verification, and one function per operation. Plain HTTP on @particle-academy/fancy-connector-core; no vendor SDK.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fancy-Friends/stripe.git"
+  },
+  "homepage": "https://github.com/Fancy-Friends/stripe#readme",
+  "bugs": "https://github.com/Fancy-Friends/stripe/issues",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./flow": {
+      "import": {
+        "types": "./dist/flow.d.ts",
+        "default": "./dist/flow.js"
+      },
+      "require": {
+        "types": "./dist/flow.d.cts",
+        "default": "./dist/flow.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "lint": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "prepublishOnly": "tsup"
+  },
+  "dependencies": {
+    "@particle-academy/fancy-connector-core": ">=0.3.0 <2.0",
+    "@particle-academy/stripe-ui": "0.1.0"
+  },
+  "peerDependencies": {
+    "@particle-academy/fancy-flow": ">=0.47.0 <2.0"
+  },
+  "peerDependenciesMeta": {
+    "@particle-academy/fancy-flow": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@particle-academy/fancy-flow": ">=0.47.0 <2.0",
+    "@types/node": "^26.2.0",
+    "tsup": "^8.5.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "stripe",
+    "payments",
+    "connector",
+    "api",
+    "fancy-ui",
+    "particle-academy"
+  ],
+  "license": "MIT",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  }
+}

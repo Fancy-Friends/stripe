@@ -1,0 +1,10 @@
+# LF everywhere. This repo is GENERATED on whatever machine ran the generator,
+# so without this a Windows run and a Linux run produce different bytes for the
+# same input — and `new-provider.mjs --check` then reports drift that is only a
+# line ending.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary

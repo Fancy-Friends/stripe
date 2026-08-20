@@ -1,0 +1,93 @@
+{
+  "operation": "payment_intent_create",
+  "kind": "payment_intent",
+  "title": "Stripe payment",
+  "description": "Create a Stripe PaymentIntent — take a payment.",
+  "summary": "take a payment",
+  "icon": "◈",
+  "docs": "https://docs.stripe.com/api/payment_intents/create",
+
+  "sideEffects": "unsafe-to-replay",
+  "idempotency": "required",
+  "$idempotencyComment": "Stripe's window is 24 hours. `required` makes the generated executor derive the key from the RUN and the NODE -- never fresh -- so a retried durable run returns the original intent instead of creating a second payment.",
+
+  "request": {
+    "method": "POST",
+    "path": "/v1/payment_intents",
+    "encoding": "form"
+  },
+
+  "config": [
+    {
+      "type": "expression",
+      "key": "amount",
+      "label": "Amount",
+      "example": "{{ $json.total_cents }}",
+      "description": "In the currency's smallest unit — 1000 is $10.00. Stripe has no decimal amounts.",
+      "required": true,
+      "send": {
+        "as": "amount",
+        "value": "integer",
+        "min": 1,
+        "error": "\"amount\" must be a positive whole number in the currency's smallest unit (1000 = $10.00)"
+      }
+    },
+    {
+      "type": "text",
+      "key": "currency",
+      "label": "Currency",
+      "default": "usd",
+      "placeholder": "usd",
+      "send": { "as": "currency", "value": "string", "transform": "lowercase", "default": "usd" }
+    },
+    {
+      "type": "expression",
+      "key": "customer",
+      "label": "Customer",
+      "example": "{{ $json.customer_id }}",
+      "send": { "as": "customer", "value": "string", "omitEmpty": true }
+    },
+    {
+      "type": "expression",
+      "key": "description",
+      "label": "Description",
+      "example": "Order {{ $json.order_id }}",
+      "send": { "as": "description", "value": "string", "omitEmpty": true }
+    },
+    {
+      "type": "expression",
+      "key": "receiptEmail",
+      "label": "Receipt email",
+      "example": "{{ $json.email }}",
+      "send": { "as": "receipt_email", "value": "string", "omitEmpty": true }
+    },
+    {
+      "type": "keyvalue",
+      "key": "metadata",
+      "label": "Metadata",
+      "keyPlaceholder": "order_id",
+      "valuePlaceholder": "{{ $json.order_id }}",
+      "description": "Sent to Stripe as metadata[key]=value. The usual way to find this payment again later.",
+      "send": { "as": "metadata", "value": "keyvalue", "encoding": "bracket" }
+    }
+  ],
+
+  "defaultConfig": { "mode": "auto", "currency": "usd" },
+
+  "outputShape": [
+    { "path": "mode", "type": "string", "description": "Which estate this ran against: fake, sandbox or live." },
+    { "path": "connection", "type": "string", "description": "The connection id that was used." },
+    { "path": "data.id", "type": "string", "description": "Payment intent id (pi_…)." },
+    { "path": "data.status", "type": "string", "description": "succeeded, requires_action, requires_payment_method, …" },
+    { "path": "data.amount", "type": "number", "description": "Amount in the currency's smallest unit." },
+    { "path": "data.currency", "type": "string", "description": "Three-letter ISO currency code." },
+    { "path": "data.customer", "type": "string", "description": "Customer id, when one was given." },
+    { "path": "data.latest_charge", "type": "string", "description": "The charge this intent produced." },
+    { "path": "data.livemode", "type": "boolean", "description": "FALSE for test-mode money. Branch on this before acting on a payment." }
+  ],
+
+  "contract": {
+    "sends": ["amount", "currency", "customer", "description", "receipt_email", "metadata"],
+    "reads": ["id", "status", "amount", "currency", "customer", "latest_charge", "livemode"]
+  }
+}

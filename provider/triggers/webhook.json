@@ -1,0 +1,68 @@
+{
+  "operation": "webhook",
+  "kind": "webhook_trigger",
+  "title": "Stripe event",
+  "description": "Start when Stripe reports an event.",
+  "summary": "an event",
+  "icon": "◈",
+  "docs": "https://docs.stripe.com/webhooks",
+
+  "sideEffects": "none",
+  "delivery": "webhook",
+  "setup": "Add an endpoint in the Stripe dashboard (or via POST /v1/webhook_endpoints) pointing at the route your host mounts for this trigger, then put the endpoint's signing secret on the connection as `webhookSecret`.",
+
+  "verification": {
+    "signatureHeader": "Stripe-Signature",
+    "algorithm": "SHA-256",
+    "encoding": "hex",
+    "tolerance": 300,
+    "payload": "{timestamp}.{body}",
+    "$payloadComment": "Stripe signs `{t}.{rawBody}`. The body must be the bytes EXACTLY as received -- re-serialised JSON changes key order and whitespace and produces a mismatch that looks precisely like a wrong secret.",
+    "header": {
+      "format": "compound",
+      "separator": ",",
+      "assign": "=",
+      "timestampKey": "t",
+      "signatureKey": "v1",
+      "$comment": "Stripe packs the timestamp INTO the signature header (`t=…,v1=…`) rather than sending one of its own. Several `v1` values arrive during a secret rotation; the FIRST is taken, because failing over to a second makes \"which one matched\" ambiguous for a window that is rare and short."
+    },
+    "secretCredential": "webhookSecret"
+  },
+
+  "config": [
+    {
+      "type": "text",
+      "key": "eventTypes",
+      "label": "Event types",
+      "placeholder": "payment_intent.succeeded, charge.refunded",
+      "description": "Comma separated. Leave blank to accept every event Stripe sends to this endpoint. A delivery whose type is not listed settles the trigger without starting the graph."
+    },
+    {
+      "type": "select",
+      "key": "sample",
+      "label": "Sample event",
+      "description": "Which event shape to emit in fake mode, so downstream nodes can be wired before Stripe has ever been contacted.",
+      "default": "payment_intent.succeeded",
+      "options": [
+        { "value": "payment_intent.succeeded", "label": "payment_intent.succeeded" },
+        { "value": "charge.refunded", "label": "charge.refunded" },
+        { "value": "checkout.session.completed", "label": "checkout.session.completed" },
+        { "value": "customer.subscription.deleted", "label": "customer.subscription.deleted" }
+      ]
+    }
+  ],
+
+  "defaultConfig": { "mode": "auto", "sample": "payment_intent.succeeded" },
+
+  "outputShape": [
+    { "path": "id", "type": "string", "description": "Event id (evt_…). Stripe redelivers on failure — dedupe on this." },
+    { "path": "type", "type": "string", "description": "The event type, e.g. payment_intent.succeeded." },
+    { "path": "created", "type": "number", "description": "Unix seconds." },
+    { "path": "livemode", "type": "boolean", "description": "FALSE for test-mode events. Branch on this before acting on money." },
+    { "path": "data.object.id", "type": "string", "description": "Id of the object the event is about." },
+    { "path": "data.object.object", "type": "string", "description": "Which kind of object: payment_intent, charge, checkout.session, subscription…" },
+    { "path": "data.object.amount", "type": "number", "description": "Amount, where the object carries one." },
+    { "path": "data.object.currency", "type": "string", "description": "Three-letter ISO currency code." },
+    { "path": "data.object.status", "type": "string", "description": "The object's status." }
+  ]
+}

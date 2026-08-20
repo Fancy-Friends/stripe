@@ -1,0 +1,17 @@
+{
+  "$comment": "GENERATED from weaver's template/repo/package.json — fix it there, not here.",
+  "name": "stripe-provider",
+  "private": true,
+  "description": "Stripe — the repo root. Never published; it exists so the two npm packages resolve each other locally.",
+  "type": "module",
+  "workspaces": ["packages/ui", "packages/js"],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces",
+    "test": "npm test --workspaces",
+    "$verifyComment": "Build first: js's types come from ui's dist, which does not exist on a clean checkout.",
+    "verify": "npm run build --workspaces && npm run lint --workspaces && npm test --workspaces"
+  },
+  "engines": { "node": ">=22" },
+  "license": "MIT"
+}

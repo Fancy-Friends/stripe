@@ -1,0 +1,179 @@
+# GENERATED — from weaver's template/repo/.github/workflows/publish.yml.
+# Fix it there and re-run `npm run provider -- stripe`; an edit here is
+# destroyed by the next protocol sync.
+
+name: Publish
+
+# TAGS ONLY. Never `pull_request`, and never `workflow_dispatch` on a ref a
+# contributor controls: a fork's code running with NPM_TOKEN reaches every
+# @particle-academy package, react-fancy included. That widening is the price of
+# keeping one brand on the registries, and this trigger is the mitigation.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  # No `id-token`. Friends packages publish with scope-wide tokens rather than
+  # OIDC, because npm Trusted Publishers are configured per PACKAGE and PyPI
+  # caps pending publishers at three. The cost is real and stated plainly:
+  # these packages carry no npm provenance.
+
+concurrency:
+  group: publish-stripe
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: gate
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Read the version from the tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      # FIRST, before anything is built. A half-published version across three
+      # registries cannot be taken back; a failed grep costs seconds.
+      - name: A CHANGELOG entry for this version must exist
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          if ! grep -qE "^## \[?${version}\]?" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no entry for ${version}."
+            echo "A release nobody described is a release nobody can decide whether to take."
+            exit 1
+          fi
+
+      - name: Fetch and run the third-party allowlist gate
+        run: |
+          curl -fsSL -o allowlist-gate.mjs \
+            https://raw.githubusercontent.com/Particle-Academy/.github/main/scripts/allowlist-gate.mjs
+          node allowlist-gate.mjs
+
+      - name: Every package must declare the version the tag claims
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          node -e '
+            const fs = require("node:fs");
+            const want = process.argv[1];
+            const found = {
+              ui: JSON.parse(fs.readFileSync("packages/ui/package.json", "utf8")).version,
+              js: JSON.parse(fs.readFileSync("packages/js/package.json", "utf8")).version,
+              py: /^version = "(.+)"$/m.exec(fs.readFileSync("packages/py/pyproject.toml", "utf8"))?.[1],
+            };
+            const wrong = Object.entries(found).filter(([, v]) => v !== want);
+            if (wrong.length) {
+              console.error(`::error::tag says ${want}, packages say ${JSON.stringify(found)}`);
+              process.exit(1);
+            }
+          ' "$version"
+
+  npm:
+    name: npm
+    needs: gate
+    runs-on: ubuntu-latest
+    strategy:
+      # One at a time. A partial matrix failure across two registries is harder
+      # to reason about than a stopped one.
+      max-parallel: 1
+      matrix:
+        package: [ui, js]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # From the ROOT: the workspace is what lets packages/js resolve packages/ui
+      # before ui has ever been published. The matrix runs ui first and
+      # `max-parallel: 1` keeps it that way, so by the time js publishes, ui is
+      # on the registry for consumers — but this build never needed it to be.
+      - run: npm install
+
+      # Every workspace, not just this matrix leg: building js needs ui's dist,
+      # and ui is listed first.
+      - run: npm run build --workspaces
+
+      - run: npm test --workspace packages/${{ matrix.package }}
+
+      # `npm publish` CREATES the package on first publish — no per-package
+      # setup, which is the entire reason for a scope-wide token.
+      - working-directory: packages/${{ matrix.package }}
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  pypi:
+    name: PyPI
+    needs: gate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/py
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - run: pip install --upgrade pip build twine pytest
+      - run: pip install .
+      - run: pytest
+      - run: python -m build
+
+      # `twine upload` creates the project on first upload. The token is
+      # account-scoped for the same reason npm's is scope-wide: a project-scoped
+      # token cannot create a project that does not exist yet.
+      - run: twine upload dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+
+  packagist:
+    name: Packagist
+    needs: gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          coverage: none
+
+      - working-directory: packages/php
+        run: |
+          composer install --no-interaction --prefer-dist
+          composer run test
+
+      # Packagist auto-syncs on subsequent releases once the package exists, so
+      # this runs meaningfully only for a brand-new one. Idempotent by check:
+      # a package that already resolves is left alone.
+      #
+      # `create-package` is classed UNSAFE by Packagist, so it needs the MAIN
+      # API token rather than a safe one.
+      - name: Register on Packagist if it is not there yet
+        run: |
+          name='particle-academy/stripe-php'
+          status=$(curl -s -o /dev/null -w '%{http_code}' "https://repo.packagist.org/p2/${name}.json")
+
+          if [ "$status" = "200" ]; then
+            echo "${name} is already registered — Packagist syncs releases on its own."
+            exit 0
+          fi
+
+          if [ "$status" != "404" ]; then
+            # A failed lookup is NOT a "no". Re-submitting on every transient
+            # blip is the same shape as a failed lookup counting as "up to date".
+            echo "::error::Packagist answered ${status} for ${name}; refusing to guess."
+            exit 1
+          fi
+
+          curl -sS -f -X POST https://packagist.org/api/create-package \
+            -H 'Content-Type: application/json' \
+            -H "Authorization: Bearer ${{ secrets.PACKAGIST_USERNAME }}:${{ secrets.PACKAGIST_TOKEN }}" \
+            -d "{\"repository\":\"https://github.com/Fancy-Friends/stripe\"}"

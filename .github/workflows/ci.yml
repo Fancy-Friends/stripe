@@ -1,0 +1,126 @@
+# GENERATED — from weaver's template/repo/.github/workflows/ci.yml.
+# Fix it there and re-run `npm run provider -- stripe`; an edit here is
+# destroyed by the next protocol sync.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# The publish token is never available here. `publish.yml` triggers on tags only,
+# and a `pull_request` run can execute a fork's code — with a scope-wide npm
+# token that reaches every @particle-academy package, react-fancy included.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generated:
+    name: packages/ match the generator
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      # The generated-code rule WILL be violated by someone in a hurry. This job
+      # is the only thing that reports it — a hand-edit under packages/ is
+      # destroyed by the next protocol sync, so failing here is the kind outcome.
+      - name: Check out weaver
+        uses: actions/checkout@v5
+        with:
+          repository: Fancy-Friends/weaver.agi
+          path: .weaver
+          token: ${{ secrets.WEAVER_READ_TOKEN || github.token }}
+
+      - name: Regenerate and diff
+        working-directory: .weaver
+        run: |
+          npm ci --ignore-scripts
+          node scripts/new-provider.mjs stripe --check --into "$GITHUB_WORKSPACE"
+
+  allowlist:
+    name: third-party allowlist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # Fetched, never vendored. A vendored gate is a gate frozen at the moment
+      # somebody copied it.
+      - name: Fetch the gate
+        run: |
+          curl -fsSL -o allowlist-gate.mjs \
+            https://raw.githubusercontent.com/Particle-Academy/.github/main/scripts/allowlist-gate.mjs
+
+      - name: Run the gate
+        run: node allowlist-gate.mjs
+
+  npm:
+    name: @particle-academy/stripe-ui + @particle-academy/stripe-js
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      # From the ROOT, so the npm workspace links packages/ui into packages/js.
+      # `@particle-academy/stripe-js` depends on `@particle-academy/stripe-ui` by its PUBLISHED name, because that
+      # is what a consumer installs — and until the first successful publish,
+      # that name does not resolve on the registry. Installing per-package would
+      # therefore leave this repo's CI red from birth, gating nothing.
+      - run: npm install
+
+      # BUILD FIRST. `@particle-academy/stripe-js` imports the node kinds from `@particle-academy/stripe-ui`, whose
+      # `types` point at ./dist — which does not exist on a clean checkout. A
+      # lint-then-build order fails every time and says nothing about the code.
+      # `--workspaces` runs in root order, and ui is listed first.
+      - run: npm run build --workspaces
+
+      - run: npm run lint --workspaces
+      - run: npm test --workspaces
+
+  php:
+    name: particle-academy/stripe-php
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/php
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+      - run: composer run lint
+      - run: composer run test
+
+  py:
+    name: fancy-stripe
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/py
+    strategy:
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install --upgrade pip build pytest ruff mypy
+      # Install the BUILT package, not the working tree: under the default
+      # import mode a missing py.typed or an unshipped file passes locally and
+      # breaks for every user.
+      - run: pip install .
+      - run: ruff check .
+      - run: mypy
+      - run: pytest
