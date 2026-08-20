@@ -62,7 +62,10 @@ jobs:
         run: node allowlist-gate.mjs
 
   npm:
-    name: @particle-academy/stripe-ui + @particle-academy/stripe-js
+    # QUOTED. Every npm package here starts with "@", and an unquoted plain
+    # scalar cannot begin with a YAML indicator character -- GitHub rejects the
+    # whole file with "a workflow file issue" and no line number.
+    name: "@particle-academy/stripe-ui + @particle-academy/stripe-js"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
