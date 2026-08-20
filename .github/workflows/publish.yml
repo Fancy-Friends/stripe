@@ -267,15 +267,27 @@ jobs:
           name=$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['name'])")
           version=$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
 
-          status=$(curl -s -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/${name}/${version}/json")
+          # The PEP 691 SIMPLE INDEX, which is what an installer actually reads.
+          #
+          # Not `pypi.org/pypi/<name>/<version>/json`: that endpoint lags badly
+          # for a newly created project — it answered 404 for fancy-stripe 0.1.0
+          # for minutes after a successful upload, while the package document
+          # already listed the version. A pre-check on it would have been a
+          # permanent no-op, always attempting an upload and always failing on
+          # the second run with "file already exists".
+          accept='Accept: application/vnd.pypi.simple.v1+json'
+          url="https://pypi.org/simple/${name}/"
+
+          status=$(curl -s -o /tmp/pypi-index.json -w '%{http_code}' -H "$accept" "$url")
 
           if [ "$status" = "200" ]; then
-            echo "${name} ${version} is already on PyPI — nothing to do."
-            exit 0
-          fi
-
-          if [ "$status" != "404" ]; then
-            echo "::error::PyPI answered ${status} for ${name} ${version}; refusing to guess."
+            if python -c "import json,sys;sys.exit(0 if sys.argv[1] in json.load(open('/tmp/pypi-index.json'))['versions'] else 1)" "$version"; then
+              echo "${name} ${version} is already on PyPI — nothing to do."
+              exit 0
+            fi
+          elif [ "$status" != "404" ]; then
+            # A failed lookup is not a "no".
+            echo "::error::PyPI answered ${status} for ${name}; refusing to guess."
             exit 1
           fi
 
