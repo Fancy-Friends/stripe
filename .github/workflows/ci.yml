@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   generated:
-    name: packages/ match the generator
+    name: nothing under packages/ was hand-edited
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -29,37 +29,77 @@ jobs:
         with:
           node-version: 22
 
-      # The generated-code rule WILL be violated by someone in a hurry. This job
-      # is the only thing that reports it — a hand-edit under packages/ is
-      # destroyed by the next protocol sync, so failing here is the kind outcome.
-      - name: Check out weaver
-        uses: actions/checkout@v5
-        with:
-          repository: Fancy-Friends/weaver.agi
-          path: .weaver
-          token: ${{ secrets.WEAVER_READ_TOKEN || github.token }}
-
-      - name: Regenerate and diff
-        working-directory: .weaver
+      # The generated-code rule WILL be violated by someone in a hurry, and a
+      # hand-edit is destroyed by the next protocol sync — so failing here is
+      # the kind outcome.
+      #
+      # Verified against `.weaver.json`, which weaver emitted beside every other
+      # file. NOT by checking out weaver and regenerating: weaver.agi is
+      # PRIVATE, and this repo's `github.token` cannot read a different private
+      # repo — that job failed at checkout and so enforced nothing at all.
+      #
+      # This answers the question that belongs HERE: did somebody edit packages/
+      # in this repo. Whether this repo is STALE against a newer template is
+      # weaver's question, and weaver's own CI is the only place with both halves.
+      - name: Verify the integrity manifest
         run: |
-          npm ci --ignore-scripts
-          node scripts/new-provider.mjs stripe --check --into "$GITHUB_WORKSPACE"
+          node -e '
+            const { createHash } = require("node:crypto");
+            const fs = require("node:fs");
+
+            const manifest = JSON.parse(fs.readFileSync(".weaver.json", "utf8"));
+            const problems = [];
+
+            for (const [file, expected] of Object.entries(manifest.files)) {
+              if (!fs.existsSync(file)) {
+                problems.push("missing:  " + file);
+                continue;
+              }
+
+              const actual = createHash("sha256")
+                .update(fs.readFileSync(file, "utf8"), "utf8")
+                .digest("hex");
+
+              if (actual !== expected) problems.push("modified: " + file);
+            }
+
+            if (problems.length) {
+              console.error("::error::" + problems.length + " generated file(s) differ from what weaver emitted");
+              for (const problem of problems) console.error("  " + problem);
+              console.error("");
+              console.error("Fix provider/ — or weavers template/ — and regenerate:");
+              console.error("    npm run provider -- stripe");
+              process.exit(1);
+            }
+
+            console.log(Object.keys(manifest.files).length + " generated files match .weaver.json");
+          '
 
   allowlist:
     name: third-party allowlist
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
 
-      # Fetched, never vendored. A vendored gate is a gate frozen at the moment
-      # somebody copied it.
-      - name: Fetch the gate
+      # FETCHED, never vendored: one source, no copies to drift. Checked out
+      # rather than curled, because the checker reads its allowlist from beside
+      # itself — this is the form every kit repo already uses.
+      - name: Fetch the third-party allowlist
+        uses: actions/checkout@v5
+        with:
+          repository: Particle-Academy/.github
+          path: .third-party-allowlist
+          persist-credentials: false
+
+      # Covers all four packages at once: npm dependencies, Composer require,
+      # and the Python project table. A vendor SDK cannot arrive unnoticed.
+      - name: Third-party dependency allowlist
         run: |
-          curl -fsSL -o allowlist-gate.mjs \
-            https://raw.githubusercontent.com/Particle-Academy/.github/main/scripts/allowlist-gate.mjs
-
-      - name: Run the gate
-        run: node allowlist-gate.mjs
+          node .third-party-allowlist/third-party/check.mjs --repo .
+          node -e "require('node:fs').rmSync('.third-party-allowlist',{recursive:true,force:true})"
 
   npm:
     # QUOTED. Every npm package here starts with "@", and an unquoted plain
