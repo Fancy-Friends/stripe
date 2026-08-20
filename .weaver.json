@@ -7,6 +7,7 @@
     ".gitattributes": "3b81cb009a60ff7f0762f24c5d336a4afd0284f2716e54c4823da08d839f664c",
     ".github/workflows/ci.yml": "10bc05fb6c4f360fc5a590913ad839626dddf7bc11e878ef5feda5c086a6ef69",
     ".github/workflows/publish.yml": "354d6bd775e4a162b5d1bdb18bbef454658f1ab50a69c0578baebc83ab4a48de",
+    ".github/workflows/verify-published.yml": "39aea37002bf9f69c0f8040a26a008d59d83dac912c285bd19b8846e5ae8a385",
     ".gitignore": "47a7633c70c1d1e6b3c17a782a105355accfb3495d6402f7f308256bf505e1ad",
     "AGENTS.md": "f2ca79468a9187095716582926bbccb7ff54fae752c0d1b218e39fc9bff8e4b9",
     "CHANGELOG.md": "2806a2885577edb1974da074d248070b9f8f10edfab045ddd883d0a098009338",
@@ -80,6 +81,10 @@
     "provider/fixtures/refund-create.json": "afd5219d87761ecc7fc101c3f14f612590e33569f40b09ead9f164c238306d7c",
     "provider/fixtures/webhook.json": "4f45b7c558c1d23e4f8d631816ba9dceafcbddffca1112f5875b15ce2676437f",
     "provider/manifest.json": "950a7278ba76732922256ed5811edb50f88acd4fbcb7df85b705b945c3daa575",
-    "provider/triggers/webhook.json": "9cf3bb1f186566ab32c153536a236cffb5fcbb891f8aa98e9b384a90c09a327b"
+    "provider/triggers/webhook.json": "9cf3bb1f186566ab32c153536a236cffb5fcbb891f8aa98e9b384a90c09a327b",
+    "verify/README.md": "4071218f4fedeace7d8ca77d2fecfcc231ab73eec1e1c3fb399ee5526e4c0a3a",
+    "verify/published.mjs": "a9ca73235f56429ba68f3b4a598a16c9bf869b19df5200147cb10cd48e9e162c",
+    "verify/published.php": "0c835a74c5ee65e6d32f70f44c986af8f4468dff61ed61cef1a976804dcafd38",
+    "verify/published.py": "ebb6f3ca969a784332ef18883d87e8994d7fb22183e14d05938558bc90eaf013"
   }
 }
