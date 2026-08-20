@@ -4,14 +4,33 @@
 
 name: Publish
 
-# TAGS ONLY. Never `pull_request`, and never `workflow_dispatch` on a ref a
-# contributor controls: a fork's code running with NPM_TOKEN reaches every
-# @particle-academy package, react-fancy included. That widening is the price of
-# keeping one brand on the registries, and this trigger is the mitigation.
+# NEVER `pull_request` or `pull_request_target`: a fork's code running with
+# NPM_TOKEN reaches every @particle-academy package, react-fancy included. That
+# widening is the price of keeping one brand on the registries, and the trigger
+# list is the mitigation.
+#
+# `workflow_dispatch` does NOT reopen that hole — it requires write access to
+# this repo and cannot be fired from a fork — and it is what makes the FIRST
+# publish safe. That run is the only thing that proves the npm token's SCOPE:
+# `npm whoami` passes identically for a token limited to selected packages, and
+# such a token cannot create a package that does not exist yet. Every friends
+# package is new, so the fault lands on publish number one — and tagging all four
+# into that run means discovering it four times.
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      only:
+        description: >-
+          Which package to publish. Use `ui` for the very first release: it has
+          no first-party dependencies, whereas @particle-academy/stripe-js depends on @particle-academy/stripe-ui
+          at an exact version, so js cannot go first. Confirm ui resolves on the
+          registry before publishing the rest.
+        type: choice
+        default: ui
+        options: [ui, js, php, py, all]
 
 permissions:
   contents: read
@@ -33,9 +52,22 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Read the version from the tag
+      # `GITHUB_REF_NAME` is the TAG on a push and the BRANCH on a dispatch.
+      # Taking it blindly would compute a version of "main" for every manual
+      # publish, grep CHANGELOG.md for `## [main]`, and refuse — including the
+      # first release, which is the whole reason the dispatch exists.
+      - name: Work out which version is being released
         id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            version=$(node -p "require('./packages/ui/package.json').version")
+            echo "Dispatched publish of '${{ inputs.only }}' at version ${version}."
+          else
+            version="${GITHUB_REF_NAME#v}"
+            echo "Tagged release ${GITHUB_REF_NAME} -> version ${version}."
+          fi
+
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
 
       # FIRST, before anything is built. A half-published version across three
       # registries cannot be taken back; a failed grep costs seconds.
@@ -104,6 +136,11 @@ jobs:
   npm:
     name: npm
     needs: gate
+    # A tag releases all four together — the steady state. A dispatch releases
+    # exactly one, which is what the first publish needs.
+    if: >-
+      github.event_name == 'push' ||
+      inputs.only == 'all' || inputs.only == 'ui' || inputs.only == 'js'
     runs-on: ubuntu-latest
     strategy:
       # One at a time. A partial matrix failure across two registries is harder
@@ -132,14 +169,49 @@ jobs:
 
       # `npm publish` CREATES the package on first publish — no per-package
       # setup, which is the entire reason for a scope-wide token.
-      - working-directory: packages/${{ matrix.package }}
+      # Skip the leg the dispatch did not ask for. `ui` first is not a
+      # preference: @particle-academy/stripe-js depends on @particle-academy/stripe-ui at an exact version, so
+      # publishing js first puts a package on npm whose dependency does not
+      # resolve.
+      - name: Publish
+        if: >-
+          github.event_name == 'push' || inputs.only == 'all' ||
+          inputs.only == matrix.package
+        working-directory: packages/${{ matrix.package }}
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Confirm it resolves on the registry
+        if: >-
+          github.event_name == 'push' || inputs.only == 'all' ||
+          inputs.only == matrix.package
+        working-directory: packages/${{ matrix.package }}
+        run: |
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+
+          # npm's registry is read-after-write eventually consistent, so give it
+          # a moment rather than reporting a publish that "failed" a second later.
+          for attempt in 1 2 3 4 5; do
+            if npm view "${name}@${version}" version >/dev/null 2>&1; then
+              echo "${name}@${version} resolves."
+              exit 0
+            fi
+            sleep 10
+          done
+
+          echo "::error::${name}@${version} was published but does not resolve."
+          echo "If this was the FIRST publish, the likeliest cause is an NPM_TOKEN"
+          echo "scoped to selected packages rather than the whole @particle-academy"
+          echo "scope — such a token cannot create a package that does not exist."
+          exit 1
+
   pypi:
     name: PyPI
     needs: gate
+    if: >-
+      github.event_name == 'push' || inputs.only == 'all' || inputs.only == 'py'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -166,6 +238,8 @@ jobs:
   packagist:
     name: Packagist
     needs: gate
+    if: >-
+      github.event_name == 'push' || inputs.only == 'all' || inputs.only == 'php'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
