@@ -20,9 +20,8 @@
  * a second one.
  */
 
-import type { NodeKindDefinition, OutputField } from "@particle-academy/fancy-flow/engine";
-
-import { defineConnectorKind, summarize } from "../connector.js";
+import type { NodeKindDefinition } from "@particle-academy/fancy-flow/engine";
+import { defineConnectorKind, summarize, type OutputField } from "@particle-academy/fancy-flow/connectors";
 import { stripeMeta } from "../service.js";
 
 export const STRIPE_REFUND_KIND = "@particle-academy/stripe_refund";

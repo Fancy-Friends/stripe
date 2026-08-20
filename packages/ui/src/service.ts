@@ -25,7 +25,7 @@
  * separate nodes.
  */
 
-import type { ConnectorMeta } from "./connector.js";
+import type { ConnectorMeta } from "@particle-academy/fancy-flow/connectors";
 
 /**
  * The connector API version this package was GENERATED against.

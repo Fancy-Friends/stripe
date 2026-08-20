@@ -17,7 +17,6 @@
  * this.
  */
 
-export * from "./connector.js";
 export * from "./service.js";
 export * from "./kinds/customer-create.js";
 export * from "./kinds/payment-intent-create.js";
