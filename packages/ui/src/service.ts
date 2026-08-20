@@ -48,12 +48,14 @@ export const STRIPE_CREDENTIALS = [
   {
     "key": "secretKey",
     "label": "Secret key",
+    "scope": "account",
     "secret": true,
     "help": "sk_test_... for the test estate, sk_live_... for the real ledger. The key -- not the URL -- decides which one you reach."
   },
   {
     "key": "webhookSecret",
     "label": "Webhook signing secret",
+    "scope": "account",
     "secret": true,
     "optional": true,
     "help": "whsec_... from the endpoint you added in the Stripe dashboard. Required only by the webhook trigger."
