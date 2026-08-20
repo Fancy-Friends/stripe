@@ -9,10 +9,37 @@
  */
 
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { stripeFaker } from "@particle-academy/stripe-js";
 import { STRIPE_KINDS } from "@particle-academy/stripe-ui";
 import { fakeRequest } from "@particle-academy/fancy-connector-core";
+
+/*
+ * WHERE did that come from?
+ *
+ * Node resolves a bare specifier from the importing MODULE's directory, not
+ * the working directory. So running this script across from a checkout
+ * resolves out of the REPO's node_modules and silently tests the source
+ * again — which it did, and passed, before CI caught it.
+ *
+ * Two things are checked, because neither is enough alone: that the package
+ * came from an INSTALL rather than from source, and that this script is not
+ * sitting inside the provider repo it is supposed to be testing.
+ */
+const resolved = import.meta.resolve("@particle-academy/stripe-js");
+const here = dirname(fileURLToPath(import.meta.url));
+
+assert.ok(
+  !existsSync(join(here, "..", "packages", "js", "package.json")),
+  `${here} is inside the provider repo, so a bare import resolves the repo's ` +
+    "own node_modules. Copy this script into a project that installed the " +
+    "published package and run it there.",
+);
+assert.match(resolved, /node_modules/, `resolved ${resolved}, which is not an installed package`);
+console.log(`  ok   resolved from ${resolved}`);
 
 const GOLDENS = [
   {

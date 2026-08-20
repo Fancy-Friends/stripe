@@ -51,10 +51,15 @@ jobs:
           npm pkg set type=module
           npm install @particle-academy/stripe-js @particle-academy/fancy-flow --no-audit --no-fund
 
+      # COPIED IN, not run across from the checkout. Node resolves a bare
+      # specifier from the importing MODULE's directory, so running it in place
+      # would resolve out of the repo's own node_modules and quietly test the
+      # source again. The script asserts that too, but copying is the fix.
       - name: Use them the way a consumer would
         run: |
           cd "$RUNNER_TEMP/consumer"
-          node "$GITHUB_WORKSPACE/verify/published.mjs"
+          cp "$GITHUB_WORKSPACE/verify/published.mjs" .
+          node ./published.mjs
 
   pypi:
     name: "fancy-stripe"
