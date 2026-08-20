@@ -337,7 +337,47 @@ jobs:
             exit 1
           fi
 
-          curl -sS -f -X POST https://packagist.org/api/create-package \
+          # KEEP THE BODY. Packagist answers 406 for BOTH "already exists" and
+          # "missing or invalid username/apiToken", and 403 for a SAFE token
+          # rather than the main one. The status alone cannot tell those apart in
+          # either direction — `curl -f` discarded the body and a real failure
+          # arrived as `curl: (22) ... error: 406` and nothing else.
+          code=$(curl -sS -o /tmp/packagist.json -w '%{http_code}' \
+            -X POST https://packagist.org/api/create-package \
             -H 'Content-Type: application/json' \
             -H "Authorization: Bearer ${{ secrets.PACKAGIST_USERNAME }}:${{ secrets.PACKAGIST_TOKEN }}" \
-            -d "{\"repository\":\"https://github.com/Fancy-Friends/stripe\"}"
+            -d "{\"repository\":\"https://github.com/Fancy-Friends/stripe\"}")
+
+          body=$(cat /tmp/packagist.json)
+          echo "Packagist answered ${code}: ${body}"
+
+          case "$(echo "$body" | tr '[:upper:]' '[:lower:]')" in
+            *"already exists"*|*"already been"*|*duplicate*)
+              echo "${name} was already registered — nothing to do."
+              exit 0
+              ;;
+            *username*|*apitoken*|*credential*)
+              echo "::error::Packagist rejected the CREDENTIAL (HTTP ${code})."
+              echo "The API wants 'username:token', so a wrong PACKAGIST_USERNAME fails"
+              echo "identically to a wrong token. Check both:"
+              echo "  gh secret set PACKAGIST_USERNAME --org Fancy-Friends --visibility all"
+              echo "  gh secret set PACKAGIST_TOKEN --org Fancy-Friends --visibility all"
+              exit 1
+              ;;
+            *"not allowed"*|*unsafe*)
+              echo "::error::This is a SAFE Packagist token, not the main one (HTTP ${code})."
+              echo "create-package is classed UNSAFE and refuses a safe token — it reads"
+              echo "like a permissions problem and is not. Take the MAIN token from"
+              echo "https://packagist.org/profile/ ('Show API Token'), then:"
+              echo "  gh secret set PACKAGIST_TOKEN --org Fancy-Friends --visibility all"
+              exit 1
+              ;;
+          esac
+
+          if [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then
+            echo "${name} registered."
+            exit 0
+          fi
+
+          echo "::error::Packagist answered ${code} and the body matched nothing known: ${body}"
+          exit 1
