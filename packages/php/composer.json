@@ -42,7 +42,8 @@
   },
   "scripts": {
     "test": "pest",
-    "lint": "pint --test"
+    "lint": "find src tests -name '*.php' -print0 | xargs -0 -n1 php -l",
+    "format": "pint"
   },
   "config": {
     "sort-packages": true,

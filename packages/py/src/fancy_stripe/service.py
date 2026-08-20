@@ -59,7 +59,7 @@ def authorize(
     are documented, but one spelling in one place is one fewer thing to get
     subtly wrong.
     """
-    request.headers["Authorization"] = f"Bearer {credentials.get("secretKey") or ""}"
+    request.headers["Authorization"] = f"Bearer {credentials.get('secretKey') or ''}"
 
 
 def descriptor() -> ServiceDescriptor:

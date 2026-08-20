@@ -61,7 +61,7 @@ def parse_signature(raw: str) -> tuple[str | None, str | None]:
 
 def signed_payload(raw: str, timestamp: str | None) -> str:
     """The exact bytes Stripe signs."""
-    return f"{timestamp or ""}.{raw}"
+    return f"{timestamp or ''}.{raw}"
 
 
 def verify_delivery(
