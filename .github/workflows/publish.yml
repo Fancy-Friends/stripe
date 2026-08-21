@@ -250,7 +250,7 @@ jobs:
         working-directory: packages/py
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
 
@@ -314,27 +314,59 @@ jobs:
           composer install --no-interaction --prefer-dist
           composer run test
 
-      # Packagist auto-syncs on subsequent releases once the package exists, so
-      # this runs meaningfully only for a brand-new one. Idempotent by check:
-      # a package that already resolves is left alone.
+      # THE ORDER IS THE WHOLE STEP: publish, push the tag, THEN register.
       #
-      # `create-package` is classed UNSAFE by Packagist, so it needs the MAIN
-      # API token rather than a safe one.
-      - name: Register on Packagist if it is not there yet
+      # Packagist reads versions from git TAGS, and it crawls a newly-registered
+      # package once, immediately. Register before the tag exists and that first
+      # crawl finds nothing — the package resolves, carries zero versions, and
+      # will not be looked at again until Packagist's own schedule comes round,
+      # which is hours. `composer require` fails the whole time with "could not
+      # find package", and the job that caused it reported success.
+      #
+      # That is what a package-by-package first release does by default, because
+      # the dispatch runs before anything is tagged. So this step DEFERS rather
+      # than registering early: pushing `v<version>` re-fires this workflow on
+      # the tag trigger, and the registration then happens in the right order.
+      - name: Register on Packagist, but only once the tag it reads exists
         run: |
           name='particle-academy/stripe-php'
-          status=$(curl -s -o /dev/null -w '%{http_code}' "https://repo.packagist.org/p2/${name}.json")
+          version=$(node -p "require('./packages/ui/package.json').version")
+          tag="v${version}"
 
-          if [ "$status" = "200" ]; then
-            echo "${name} is already registered — Packagist syncs releases on its own."
+          # One version across all four packages — the CHANGELOG says so — so
+          # the ui package.json is as good a source as any and needs no PHP.
+          if [ -z "$(git ls-remote --tags origin "refs/tags/${tag}")" ]; then
+            echo "${tag} does not exist yet, so Packagist would register ${name} with"
+            echo "no versions and not look again for hours. Deferring."
+            echo
+            echo "Push the tag and this workflow runs again in the right order:"
+            echo "    git tag -a ${tag} -m '${tag}' && git push origin ${tag}"
             exit 0
           fi
 
-          if [ "$status" != "404" ]; then
+          status=$(curl -s -o /dev/null -w '%{http_code}' "https://repo.packagist.org/p2/${name}.json")
+
+          if [ "$status" != "200" ] && [ "$status" != "404" ]; then
             # A failed lookup is NOT a "no". Re-submitting on every transient
             # blip is the same shape as a failed lookup counting as "up to date".
             echo "::error::Packagist answered ${status} for ${name}; refusing to guess."
             exit 1
+          fi
+
+          if [ "$status" = "200" ]; then
+            # Registered already. Ask for a crawl rather than assuming one:
+            # subsequent releases DO auto-sync, but a package registered before
+            # its first tag is stuck until something asks, and this is the
+            # recovery path for exactly that state. `update-package` is classed
+            # SAFE, so it works with either token.
+            code=$(curl -sS -o /tmp/packagist.json -w '%{http_code}' \
+              -X POST https://packagist.org/api/update-package \
+              -H 'Content-Type: application/json' \
+              -H "Authorization: Bearer ${{ secrets.PACKAGIST_USERNAME }}:${{ secrets.PACKAGIST_TOKEN }}" \
+              -d "{\"repository\":{\"url\":\"https://github.com/Fancy-Friends/stripe\"}}")
+
+            echo "Packagist answered ${code} to an update request: $(cat /tmp/packagist.json)"
+            exit 0
           fi
 
           # KEEP THE BODY. Packagist answers 406 for BOTH "already exists" and
@@ -342,6 +374,9 @@ jobs:
           # rather than the main one. The status alone cannot tell those apart in
           # either direction — `curl -f` discarded the body and a real failure
           # arrived as `curl: (22) ... error: 406` and nothing else.
+          #
+          # `create-package` is classed UNSAFE by Packagist, so it needs the MAIN
+          # API token rather than a safe one.
           code=$(curl -sS -o /tmp/packagist.json -w '%{http_code}' \
             -X POST https://packagist.org/api/create-package \
             -H 'Content-Type: application/json' \
@@ -380,4 +415,38 @@ jobs:
           fi
 
           echo "::error::Packagist answered ${code} and the body matched nothing known: ${body}"
+          exit 1
+
+      # The npm job confirms the VERSION resolves rather than trusting a green
+      # publish, and the same reasoning applies here twice over: Packagist can
+      # answer 200 for a package that carries no versions at all, which is the
+      # exact state a too-early registration leaves behind. "The package exists"
+      # is not the question anybody is asking — `composer require` wants a
+      # version.
+      - name: Confirm the version resolves on Packagist
+        run: |
+          name='particle-academy/stripe-php'
+          version=$(node -p "require('./packages/ui/package.json').version")
+          tag="v${version}"
+
+          if [ -z "$(git ls-remote --tags origin "refs/tags/${tag}")" ]; then
+            echo "${tag} is not pushed yet, so there is no version to confirm."
+            exit 0
+          fi
+
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -s "https://repo.packagist.org/p2/${name}.json" \
+              | tr ',' '\n' | grep -q "\"version\":\"${tag}\""; then
+              echo "${name} ${tag} resolves on Packagist."
+              exit 0
+            fi
+
+            sleep 15
+          done
+
+          echo "::error::${name} does not carry ${tag} on Packagist."
+          echo "If the package was registered BEFORE the tag was pushed, its first"
+          echo "crawl found no versions and the next one is hours away. The step"
+          echo "above asks for a fresh crawl; re-running this workflow is safe and"
+          echo "is the fix."
           exit 1
