@@ -353,12 +353,18 @@ jobs:
             exit 1
           fi
 
-          if [ "$status" = "200" ]; then
-            # Registered already. Ask for a crawl rather than assuming one:
-            # subsequent releases DO auto-sync, but a package registered before
-            # its first tag is stuck until something asks, and this is the
-            # recovery path for exactly that state. `update-package` is classed
-            # SAFE, so it works with either token.
+          # ASK FOR THE CRAWL. Both paths need this, and that is the correction
+          # monday.com's release bought: the tag was pushed BEFORE
+          # `create-package`, exactly as the rule says, and the version still did
+          # not appear — seven minutes of polling and an empty `p2`. An
+          # `update-package` request made it resolve instantly.
+          #
+          # So registering in the right order is NECESSARY AND NOT SUFFICIENT.
+          # Packagist's crawl-on-registration is asynchronous and slower than any
+          # window worth waiting in, and "the rule was followed and it still
+          # failed" is the reading that sends somebody looking at a credential
+          # that was fine. `update-package` is classed SAFE, so either token works.
+          ask_for_a_crawl() {
             code=$(curl -sS -o /tmp/packagist.json -w '%{http_code}' \
               -X POST https://packagist.org/api/update-package \
               -H 'Content-Type: application/json' \
@@ -366,6 +372,12 @@ jobs:
               -d "{\"repository\":{\"url\":\"https://github.com/Fancy-Friends/stripe\"}}")
 
             echo "Packagist answered ${code} to an update request: $(cat /tmp/packagist.json)"
+          }
+
+          if [ "$status" = "200" ]; then
+            # Registered already — so this is a later release, or the recovery
+            # path for one registered before its first tag existed.
+            ask_for_a_crawl
             exit 0
           fi
 
@@ -411,6 +423,7 @@ jobs:
 
           if [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then
             echo "${name} registered."
+            ask_for_a_crawl
             exit 0
           fi
 
