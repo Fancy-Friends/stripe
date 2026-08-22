@@ -20,6 +20,25 @@ npm run provider -- stripe            # regenerate this repo
 npm run provider -- stripe --check    # exit 1 on any difference
 ```
 
+## The pull request titled "chore: regenerate from the envelope"
+
+It was opened by weaver's protocol sweep, on the branch `sync/protocol`, and it
+carries a change made to `template/` for EVERY provider at once — a new required
+check, a changed publish step, an action version moving off a deprecated
+runtime. The diff is the generator's output, not somebody's edit.
+
+**Review it, then merge it.** Two things not to do:
+
+- **Do not push commits onto that branch.** The sweep force-updates it, so an
+  edit there is destroyed by the next run — the same failure as hand-editing a
+  generated file, just further from where anyone would look for it.
+- **Do not close it and fix this repo instead.** The change came from the
+  envelope and every other provider is getting it. Fixing it here diverges this
+  repo from the template, which is the one state the estate cannot carry.
+
+If the change is wrong, it is wrong in `template/` — say so and it is fixed
+once, for all of them.
+
 ## What is where
 
 | Path | What | Hand-written? |
