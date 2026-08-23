@@ -5,7 +5,7 @@
   "connectorApi": 1,
   "files": {
     ".gitattributes": "3b81cb009a60ff7f0762f24c5d336a4afd0284f2716e54c4823da08d839f664c",
-    ".github/workflows/ci.yml": "ef62cc14a39e2291aafdf038462da90103103679b316d522e1b9017335c5e5f1",
+    ".github/workflows/ci.yml": "413df42ad38e58b528ebbe33a1419b4abd3b432968d22ec56c1d47cdbccc2301",
     ".github/workflows/publish.yml": "8dd98927a1d03761c6bc956b3f8c5370a077b31af62f8067ae3aa66b81726335",
     ".github/workflows/token-canary.yml": "e372f6f2ea783a6db7679e832d52b8a633ca9286816ef5871ddf346617b2a4c4",
     ".github/workflows/verify-published.yml": "5349399abe1d86ee0ac01da7ec558dd15d21491a6c08710935506eae63cb3c22",
