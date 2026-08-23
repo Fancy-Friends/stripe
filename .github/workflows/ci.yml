@@ -8,6 +8,12 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Runnable BY HAND, which is not a convenience. google-sheets was created,
+  # pushed to twice and opened a pull request against, and GitHub fired no
+  # workflow at all — while `workflow_dispatch` worked immediately on the same
+  # repo. CI passing is the gate before publishing, so a CI nobody can start is
+  # a provider nobody can ship.
+  workflow_dispatch:
 
 # The publish token is never available here. `publish.yml` triggers on tags only,
 # and a `pull_request` run can execute a fork's code — with a scope-wide npm
