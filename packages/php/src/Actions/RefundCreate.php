@@ -39,9 +39,14 @@ final class RefundCreate
      * later as an "invalid request" from Stripe.
      *
      * @param array<string,mixed> $config
-     * @return array<string,scalar>
+     * An EMPTY body is `{}`, not `[]` — and PHP cannot tell those apart, because
+     * both are `array()` and `json_encode` picks the list. So an empty one is
+     * returned as an object. TypeScript and Python have no such ambiguity, which
+     * is why this is a difference only the byte-parity suite can see.
+     *
+     * @return array<string,mixed>|\stdClass
      */
-    public static function body(array $config): array
+    public static function body(array $config): array|\stdClass
     {
         if (($config['paymentIntent'] ?? null) === null || ($config['paymentIntent'] ?? null) === '') {
             throw new ConnectorConfigException('refund_create: "paymentIntent" is required (Payment intent).');
@@ -73,6 +78,7 @@ final class RefundCreate
             $body[$key] = $value;
         }
 
+        $body = $body === [] ? new \stdClass() : $body;
         return $body;
     }
 

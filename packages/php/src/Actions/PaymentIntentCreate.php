@@ -40,9 +40,14 @@ final class PaymentIntentCreate
      * later as an "invalid request" from Stripe.
      *
      * @param array<string,mixed> $config
-     * @return array<string,scalar>
+     * An EMPTY body is `{}`, not `[]` — and PHP cannot tell those apart, because
+     * both are `array()` and `json_encode` picks the list. So an empty one is
+     * returned as an object. TypeScript and Python have no such ambiguity, which
+     * is why this is a difference only the byte-parity suite can see.
+     *
+     * @return array<string,mixed>|\stdClass
      */
-    public static function body(array $config): array
+    public static function body(array $config): array|\stdClass
     {
         $amount = $config['amount'] ?? null;
         if (! (is_numeric($amount) && (float) $amount === floor((float) $amount) && (float) $amount >= 1)) {
@@ -78,6 +83,7 @@ final class PaymentIntentCreate
             $body[$key] = $value;
         }
 
+        $body = $body === [] ? new \stdClass() : $body;
         return $body;
     }
 
