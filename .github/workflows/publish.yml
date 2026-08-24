@@ -305,6 +305,38 @@ jobs:
             head -c 2000 /tmp/pypi-error.txt
             echo
             echo "::endgroup::"
+
+            # The REAL upload again, verbosely. twine prints only the reason
+            # phrase — "Too Many Requests" — and DISCARDS the HTML body, which
+            # is where PyPI says which limit was hit. That distinction is the
+            # whole diagnosis, so it is captured rather than inferred.
+            echo "::group::The failing upload, verbosely"
+            twine upload --verbose dist/* > /tmp/pypi-verbose.txt 2>&1 || true
+            cat /tmp/pypi-verbose.txt
+            echo "::endgroup::"
+
+            if grep -qi "Too many new projects created" /tmp/pypi-verbose.txt; then
+              echo "::error::PyPI refused to create a NEW PROJECT — its rate limit, not this package."
+              echo
+              echo "PyPI meters project CREATION with two limiters, and warehouse's"
+              echo "own defaults are:"
+              echo "    project.create.user   20 per hour"
+              echo "    project.create.ip     40 per hour"
+              echo
+              echo "The per-IP one is the usual culprit here: GitHub Actions runners"
+              echo "share a pool of addresses with everyone else publishing to PyPI, so"
+              echo "the 40/hour can be exhausted by strangers. Nothing is wrong with the"
+              echo "token, the metadata or the upload — a version of an EXISTING project"
+              echo "would go straight through."
+              echo
+              echo "Do NOT retry in a tight loop: each attempt consumes budget whether it"
+              echo "succeeds or not, which keeps the window full."
+              echo
+              echo "Either wait and re-dispatch this workflow with only=py, or upload once"
+              echo "from a machine on a different address:"
+              echo "    cd packages/py && python -m build && twine upload dist/*"
+            fi
+
             exit 1
           fi
         env:
