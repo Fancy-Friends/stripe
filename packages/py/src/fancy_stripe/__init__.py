@@ -24,7 +24,7 @@ from .faker import respond
 from .service import BASE_URLS, CONNECTOR_API_VERSION, REQUIRES, SANDBOX, SERVICE, TITLE, descriptor
 from .triggers import webhook
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "BASE_URLS",

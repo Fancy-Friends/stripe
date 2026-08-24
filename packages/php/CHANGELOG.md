@@ -18,6 +18,31 @@ upgraded into it can learn what changed.
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-08-24
+
+### Changed
+
+- **`@particle-academy/stripe-ui` is now an OPTIONAL PEER dependency of `@particle-academy/stripe-js`, not a hard one.**
+
+`./flow` needs it; nothing else does. It was a hard dependency, and because
+`@particle-academy/stripe-ui` itself peer-depends on `fancy-flow` — which npm 7+ installs
+automatically — `npm install @particle-academy/stripe-js` pulled the **entire flow engine**
+onto disk for a consumer who only wanted to call the API. Roughly **18 MB
+became 874 KB**, and the package works exactly as before:
+
+```js
+import { stripe… } from "@particle-academy/stripe-js";
+// an injected transport, no flow engine anywhere
+```
+
+**This is breaking if you use `@particle-academy/stripe-js/flow`.** Add `@particle-academy/stripe-ui` to your own
+dependencies — it was always being installed for you, and now it is declared.
+Everything importing only the main entry point is unaffected.
+
+The fix is on this edge rather than on `@particle-academy/stripe-ui` → `fancy-flow`: the ui package
+genuinely requires fancy-flow, since it calls `defineConnectorKind`, and marking
+that peer optional would be a lie about what it needs.
+
 ## [0.1.0] — 2026-08-20
 
 First release. Ported from the vendored flow-node connector at
@@ -53,3 +78,4 @@ consumer had copied it — that is the whole reason these are packages.
 - **No Stripe SDK.** Plain HTTP: a vendor SDK is third-party code subject to the
   kit's full approval bar, and one per provider is hundreds of dependencies
   nobody is tracking.
+[0.2.0]: https://github.com/Fancy-Friends/stripe/releases/tag/v0.2.0

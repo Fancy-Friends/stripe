@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fancy-stripe"
-version = "0.1.0"
+version = "0.2.0"
 description = "Stripe for Python — the service descriptor, its faker, its webhook verification, and one function per operation. Plain HTTP; no vendor SDK."
 readme = "README.md"
 # 3.11 matches fancy-flow-py's floor: 3.10 reaches end of life on 2026-10-31,
