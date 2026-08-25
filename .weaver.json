@@ -72,7 +72,7 @@
     "packages/ui/src/kinds/payment-intent-create.ts": "2d8d12c19d9fd4ae04a3a54bc12647c0296890d7db8fbc6d8a6f0fde0960a75f",
     "packages/ui/src/kinds/refund-create.ts": "4338d124e74dd2bef2875cdec12e09865fa8c31013c925a1a5e255e32f22169f",
     "packages/ui/src/kinds/webhook.ts": "3001df3712ef3288414fb3ad30e2e15d279b679b3c731633165452d2023dcab6",
-    "packages/ui/src/service.ts": "746be3684cab7845675ed80736f8aa44bec97d2ec379c7b40dbd90a3accb82dd",
+    "packages/ui/src/service.ts": "f5662b112b5da9b59b0d91a3f7cc477ad02b9832988b300530dbd6e0fa84ab51",
     "packages/ui/tests/kinds.test.ts": "ef176b5b34d0b6d8a247291000599d9c3233deed54e4409f0101fe38c5691158",
     "packages/ui/tsconfig.json": "2cdc4c3b504406aa9553ffad3d936061d66be410030ac3571f0fc81d737d6875",
     "packages/ui/tsup.config.ts": "4067a7f50c1fbbc3c25addab30d28ccada74cc2f80f1b23aecbdc85a3fa50bc0",
