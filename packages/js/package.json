@@ -1,6 +1,6 @@
 {
   "name": "@particle-academy/stripe-js",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Stripe for Node — the service descriptor, its faker, its webhook verification, and one function per operation. Plain HTTP on @particle-academy/fancy-connector-core; no vendor SDK.",
   "repository": {
     "type": "git",
@@ -52,7 +52,7 @@
   },
   "peerDependencies": {
     "@particle-academy/fancy-flow": ">=0.47.1 <2.0",
-    "@particle-academy/stripe-ui": "0.2.0"
+    "@particle-academy/stripe-ui": "0.3.0"
   },
   "peerDependenciesMeta": {
     "@particle-academy/fancy-flow": {

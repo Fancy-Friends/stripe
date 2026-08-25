@@ -1,6 +1,6 @@
 {
   "name": "@particle-academy/stripe-ui",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Stripe's authoring surface for fancy-flow — the node kinds, their config schemas and their declared output shapes. React on every host; carries no executor.",
   "repository": {
     "type": "git",
