@@ -16,6 +16,8 @@ it builds anything, so the failure costs seconds rather than a half-published
 version across three registries — and once a tarball is on a registry, nobody who
 upgraded into it can learn what changed.
 
+## [Unreleased]
+
 ## [0.3.0] — 2026-08-24
 
 ### Added
@@ -49,8 +51,6 @@ hand-written setup section is a few hundred documents going quietly stale.
 
 No code changed. This release exists because a registry and an installing agent
 read the PUBLISHED artifact, and the artifact carried the old README.
-
-## [Unreleased]
 
 ## [0.2.0] — 2026-08-24
 
