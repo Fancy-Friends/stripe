@@ -52,7 +52,7 @@
   },
   "peerDependencies": {
     "@particle-academy/fancy-flow": ">=0.47.1 <2.0",
-    "@particle-academy/stripe-ui": "0.3.0"
+    "@particle-academy/stripe-ui": ">=0.3.0 <0.4.0"
   },
   "peerDependenciesMeta": {
     "@particle-academy/fancy-flow": {
