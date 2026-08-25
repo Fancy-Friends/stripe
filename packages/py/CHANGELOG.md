@@ -18,6 +18,31 @@ upgraded into it can learn what changed.
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-08-24
+
+### Fixed
+
+- **`@particle-academy/stripe-js` now accepts a RANGE of `@particle-academy/stripe-ui`, not one exact version.**
+
+It peer-depended on `@particle-academy/stripe-ui` at exactly the release it shipped with. That is the
+strict form of the thing the kit's own rule forbids — a first-party sibling gets
+a range — and the same block applied the rule correctly to its other two
+dependencies. It was this one pair that slipped.
+
+What it cost: ship `@particle-academy/stripe-ui` with a fixed help string and every consumer on the
+previous `@particle-academy/stripe-js` had an **unmet peer**, which npm 7+ errors on. A documentation
+patch could not be delivered without a matching runtime release, and a routine
+`npm update` that moved the ui package alone broke the install.
+
+The coupling is real and is not being loosened away. The ui package emits the
+config schema and the js package implements against it, so a ui that adds a
+field to a js that ignores it is silently wrong. But a PATCH is non-additive by
+definition and a MINOR is where a field can appear — so `>=0.3.1 <0.4.0` is the
+coupling that actually exists rather than the strictest one expressible.
+
+Nothing else changed. `particle-academy/stripe-php` and `fancy-stripe` are unaffected; neither has an
+equivalent edge.
+
 ## [0.3.0] — 2026-08-24
 
 ### Added
@@ -114,3 +139,4 @@ consumer had copied it — that is the whole reason these are packages.
   nobody is tracking.
 [0.2.0]: https://github.com/Fancy-Friends/stripe/releases/tag/v0.2.0
 [0.3.0]: https://github.com/Fancy-Friends/stripe/releases/tag/v0.3.0
+[0.3.1]: https://github.com/Fancy-Friends/stripe/releases/tag/v0.3.1
