@@ -1,6 +1,6 @@
 {
   "name": "@particle-academy/stripe-js",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Stripe for Node — the service descriptor, its faker, its webhook verification, and one function per operation. Plain HTTP on @particle-academy/fancy-connector-core; no vendor SDK.",
   "repository": {
     "type": "git",
