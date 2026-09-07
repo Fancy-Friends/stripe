@@ -301,7 +301,14 @@ jobs:
           # missing while `/<name>/<version>` already answered 200. Two sources
           # of truth for "does this exist" disagree exactly when it matters, and
           # here it turned a successful first publish into a red run.
-          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+          # TWENTY attempts at 30s = ten minutes, widened from 10x15s.
+          #
+          # `gmail-js` published cleanly WITH provenance and was still not on
+          # the versioned endpoint inside 150 seconds, so the job went red over
+          # a release that had entirely succeeded. Two of twenty-three releases
+          # tripped this, and a red run that is actually a success is how a team
+          # learns to ignore red.
+          for attempt in $(seq 1 20); do
             status=$(curl -s -o /dev/null -w '%{http_code}' "https://registry.npmjs.org/${name}/${version}")
 
             if [ "$status" = "200" ]; then
@@ -336,11 +343,11 @@ jobs:
               exit 0
             fi
 
-            sleep 15
+            sleep 30
           done
 
           echo "::error::${name}@${version} published cleanly and is STILL not on the"
-          echo "registry after 150 seconds."
+          echo "registry after TEN MINUTES."
           echo
           echo "Note what this is not: the publish step succeeded, so the Trusted"
           echo "Publisher is configured and provenance was accepted. Do not go looking"
@@ -623,19 +630,44 @@ jobs:
             exit 0
           fi
 
-          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+          # TWENTY attempts at 30s = ten minutes, widened from 10x15s, with a
+          # SECOND crawl request halfway.
+          #
+          # stripe v0.3.2 was on Packagist minutes after this step gave up at
+          # 150 seconds. The crawl is asynchronous and a request can sit behind
+          # others, so asking AGAIN is worth more than only waiting longer.
+          for attempt in $(seq 1 20); do
             if curl -s "https://repo.packagist.org/p2/${name}.json" \
               | tr ',' '\n' | grep -q "\"version\":\"${tag}\""; then
               echo "${name} ${tag} resolves on Packagist."
               exit 0
             fi
 
-            sleep 15
+            if [ "$attempt" = "10" ]; then
+              echo "Five minutes without it — asking Packagist for another crawl."
+              code=$(curl -sS -o /tmp/packagist-recrawl.json -w '%{http_code}' \
+                -X POST https://packagist.org/api/update-package \
+                -H 'Content-Type: application/json' \
+                -H "Authorization: Bearer ${{ secrets.PACKAGIST_USERNAME }}:${{ secrets.PACKAGIST_TOKEN }}" \
+                -d "{\"repository\":{\"url\":\"https://github.com/Fancy-Friends/stripe\"}}")
+              echo "Packagist answered ${code}: $(cat /tmp/packagist-recrawl.json)"
+            fi
+
+            sleep 30
           done
 
-          echo "::error::${name} does not carry ${tag} on Packagist."
+          echo "::error::${name} does not carry ${tag} on Packagist after TEN MINUTES,"
+          echo "across TWO crawl requests."
+          echo
+          echo "What this is NOT: a publish failure. Packagist reads versions from git"
+          echo "TAGS, and the tag is pushed — so nothing is wrong with the package, the"
+          echo "token, or this workflow. Do not go looking at credentials."
+          echo
           echo "If the package was registered BEFORE the tag was pushed, its first"
-          echo "crawl found no versions and the next one is hours away. The step"
-          echo "above asks for a fresh crawl; re-running this workflow is safe and"
-          echo "is the fix."
+          echo "crawl found no versions and the scheduled one is hours away. Check"
+          echo "whether it has since landed before doing anything:"
+          echo "    curl -s https://repo.packagist.org/p2/${name}.json | grep -o 'v[0-9.]*'"
+          echo
+          echo "If it has, this was propagation and there is nothing to fix. If it has"
+          echo "not, re-running this workflow is safe and is the fix."
           exit 1
