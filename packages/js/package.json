@@ -4,7 +4,8 @@
   "description": "Stripe for Node — the service descriptor, its faker, its webhook verification, and one function per operation. Plain HTTP on @particle-academy/fancy-connector-core; no vendor SDK.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Fancy-Friends/stripe.git"
+    "url": "git+https://github.com/Fancy-Friends/stripe.git",
+    "directory": "packages/js"
   },
   "homepage": "https://github.com/Fancy-Friends/stripe#readme",
   "bugs": "https://github.com/Fancy-Friends/stripe/issues",

@@ -4,18 +4,18 @@
 
 name: Publish
 
-# NEVER `pull_request` or `pull_request_target`: a fork's code running with
-# NPM_TOKEN reaches every @particle-academy package, react-fancy included. That
-# widening is the price of keeping one brand on the registries, and the trigger
-# list is the mitigation.
+# NEVER `pull_request` or `pull_request_target`: a fork's code running in this
+# workflow would mint an OIDC token for THIS repo and publish as it. Under the
+# old scope-wide token the same hole reached every @particle-academy package;
+# Trusted Publishing narrows the blast radius to this repo's own packages and
+# does not close it, so the trigger list is still the mitigation.
 #
-# `workflow_dispatch` does NOT reopen that hole — it requires write access to
-# this repo and cannot be fired from a fork — and it is what makes the FIRST
-# publish safe. That run is the only thing that proves the npm token's SCOPE:
-# `npm whoami` passes identically for a token limited to selected packages, and
-# such a token cannot create a package that does not exist yet. Every friends
-# package is new, so the fault lands on publish number one — and tagging all four
-# into that run means discovering it four times.
+# `workflow_dispatch` does NOT reopen it — it requires write access to this
+# repo and cannot be fired from a fork — and it is what makes the FIRST publish
+# safe. That run is the only thing that proves the Trusted Publisher is
+# configured FOR THIS PACKAGE: publishers are per package, so a green run for
+# one says nothing about the next. Tagging all four into that run means
+# discovering a gap four times.
 on:
   push:
     tags:
@@ -25,19 +25,21 @@ on:
       only:
         description: >-
           Which package to publish. Use `ui` for the very first release: it has
-          no first-party dependencies, whereas @particle-academy/stripe-js depends on @particle-academy/stripe-ui
-          at an exact version, so js cannot go first. Confirm ui resolves on the
-          registry before publishing the rest.
+          no first-party dependencies, whereas @particle-academy/stripe-js peer-depends on
+          @particle-academy/stripe-ui at a minor RANGE, so a js published first sits there with an
+          unsatisfied peer until ui lands at that minor. Confirm ui resolves on
+          the registry before publishing the rest.
         type: choice
         default: ui
         options: [ui, js, php, py, all]
 
+# What EVERY job needs, and nothing more. `id-token: write` is declared on the
+# `npm` job alone — see there. Declaring it here would hand an OIDC identity for
+# this repo to the PyPI and Packagist jobs as well, neither of which exchanges
+# one, and a credential nobody uses is still a credential in reach of every
+# action those jobs run.
 permissions:
   contents: read
-  # No `id-token`. Friends packages publish with scope-wide tokens rather than
-  # OIDC, because npm Trusted Publishers are configured per PACKAGE and PyPI
-  # caps pending publishers at three. The cost is real and stated plainly:
-  # these packages carry no npm provenance.
 
 concurrency:
   group: publish-stripe
@@ -51,6 +53,12 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          # NOTHING here writes to git. The only `git push` in this file is
+          # inside an echo, telling a human what to run. So the token checkout
+          # leaves in .git/config for the life of the job has no use — and
+          # every later step, and every action those steps call, can read it.
+          persist-credentials: false
 
       # `GITHUB_REF_NAME` is the TAG on a push and the BRANCH on a dispatch.
       # Taking it blindly would compute a version of "main" for every manual
@@ -136,6 +144,26 @@ jobs:
   npm:
     name: npm
     needs: gate
+    # Job-level permissions REPLACE the workflow block, they do not merge with
+    # it — so `contents: read` is restated here rather than inherited. Dropping
+    # it would break `actions/checkout` in this job only, which is the kind of
+    # failure that looks like a runner problem.
+    #
+    # `id-token: write` is what makes npm Trusted Publishing work: the runner
+    # exchanges a short-lived OIDC token for publish rights, and npm records
+    # PROVENANCE against the workflow that ran.
+    #
+    # This used to say the opposite, and the reason was real at the time —
+    # Trusted Publishers are configured per PACKAGE, and 46 of them is not a
+    # setup anybody was going to do by hand. The owner has since had it done,
+    # pointed at the Fancy-Friends repos, which is the org these workflows run
+    # in and what npm checks `repository.url` against.
+    #
+    # PyPI is untouched. Its pending-publisher cap of three is still real and
+    # the py job still uses a token.
+    permissions:
+      contents: read
+      id-token: write
     # A tag releases all four together — the steady state. A dispatch releases
     # exactly one, which is what the first publish needs.
     if: >-
@@ -150,10 +178,29 @@ jobs:
         package: [ui, js]
     steps:
       - uses: actions/checkout@v5
+        with:
+          # NOTHING here writes to git. The only `git push` in this file is
+          # inside an echo, telling a human what to run. So the token checkout
+          # leaves in .git/config for the life of the job has no use — and
+          # every later step, and every action those steps call, can read it.
+          persist-credentials: false
       - uses: actions/setup-node@v5
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+
+      # PINNED, and neither half of the pin is fussiness.
+      #
+      # `setup-node` on node 22 bundles npm 10, and Trusted Publishing needs
+      # 11.5+ — so the upgrade is mandatory, not a preference. `npm@latest` is
+      # NOT the way to get it: self-replacement fails with
+      # `MODULE_NOT_FOUND: promise-retry`. And npm 12.0.0 broke provenance for
+      # the estate that set this up first, which is why the version is exact
+      # rather than a range.
+      #
+      # `npx -y npm@11.18.0` rather than `npm i -g`: it sidesteps the
+      # self-replacement path entirely.
+      - run: node -e "console.log('bundled npm:', require('child_process').execSync('npm -v').toString().trim())"
 
       # From the ROOT: the workspace is what lets packages/js resolve packages/ui
       # before ui has ever been published. The matrix runs ui first and
@@ -167,12 +214,16 @@ jobs:
 
       - run: npm test --workspace packages/${{ matrix.package }}
 
-      # `npm publish` CREATES the package on first publish — no per-package
-      # setup, which is the entire reason for a scope-wide token.
+      # Under a scope-wide token `npm publish` CREATED the package with no
+      # per-package setup, and that was the entire reason for such a token.
+      # Trusted Publishing inverts it: a publisher is configured PER PACKAGE, so
+      # a package nobody set one up for cannot publish here at all — which is
+      # what the failure branch below is written to say out loud.
+      #
       # Skip the leg the dispatch did not ask for. `ui` first is not a
-      # preference: @particle-academy/stripe-js depends on @particle-academy/stripe-ui at an exact version, so
-      # publishing js first puts a package on npm whose dependency does not
-      # resolve.
+      # preference: @particle-academy/stripe-js peer-depends on @particle-academy/stripe-ui at a minor RANGE, so
+      # publishing js first puts a package on npm whose peer is unsatisfied until
+      # ui lands at that minor.
       # Idempotent BY CHECK, not by hope — the same rule submit-catalogs.mjs
       # applies to Packagist. A version already on the registry is skipped, so a
       # re-run after a half-finished release is safe rather than a second
@@ -201,9 +252,38 @@ jobs:
             exit 1
           fi
 
-          npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # `--provenance` is the point of the change: npm records WHICH
+          # workflow in WHICH repo published this, and refuses if
+          # `repository.url` does not match the OIDC source. Ours is
+          # `git+https://github.com/Fancy-Friends/stripe.git`, emitted from friends.json,
+          # so it matches by construction rather than by anyone remembering.
+          #
+          # `--access public` on EVERY publish, not just the first: a scoped
+          # package defaults to restricted.
+          #
+          # NO `NODE_AUTH_TOKEN`. OIDC is exclusive — a token present beside it
+          # is at best noise and at worst the thing that gets used, which would
+          # publish without provenance and look like success.
+          #
+          # The failure branch is HERE and not in the confirm step below,
+          # because a rejected publish fails THIS step and every later one is
+          # skipped. The guidance lived down there for one commit and was
+          # unreachable in the only case it was written for.
+          if ! npx -y npm@11.18.0 publish --provenance --access public; then
+            echo "::error::${name}@${version} was REFUSED by npm."
+            echo
+            echo "Publishing here uses npm Trusted Publishing (OIDC), and publishers are"
+            echo "configured PER PACKAGE. The likeliest cause is that ${name} has no"
+            echo "Trusted Publisher pointing at ${GITHUB_REPOSITORY} and this workflow"
+            echo "file — a sibling package succeeding says nothing about this one."
+            echo
+            echo "Check it at: https://www.npmjs.com/package/${name}/access"
+            echo
+            echo "The other candidate is repository.url in package.json. Provenance"
+            echo "REJECTS a publish whose repository.url does not match the OIDC source,"
+            echo "and that failure arrives after everything else has passed."
+            exit 1
+          fi
 
       - name: Confirm it resolves on the registry
         if: >-
@@ -226,17 +306,54 @@ jobs:
 
             if [ "$status" = "200" ]; then
               echo "${name}@${version} is on the registry."
+
+              # And it carries PROVENANCE, which is the only thing that proves
+              # this published through Trusted Publishing rather than falling
+              # back to something else. Resolving proves a package exists; it
+              # does not prove HOW it got there, and "the job was green" is not
+              # evidence anywhere else in this repo either.
+              #
+              # Every package published under the old scope-wide token has no
+              # `dist.attestations` at all — checked on the registry, not
+              # assumed — so its absence here is a real signal and not a quirk
+              # of the endpoint.
+              curl -s "https://registry.npmjs.org/${name}/${version}" > /tmp/npm-version.json
+
+              if ! node -e 'process.exit(JSON.parse(require("fs").readFileSync("/tmp/npm-version.json","utf8")).dist?.attestations ? 0 : 1)'; then
+                echo "::error::${name}@${version} published WITHOUT provenance."
+                echo
+                echo "The package is on the registry, so this is not a publish failure —"
+                echo "it is the publish having taken a path that does not attest. The"
+                echo "point of Trusted Publishing is the attestation; without it this"
+                echo "release is indistinguishable from one made with a token."
+                echo
+                echo "Do not re-run: ${version} exists and a re-run will skip it. The"
+                echo "next release is where this gets corrected."
+                exit 1
+              fi
+
+              echo "...with provenance."
               exit 0
             fi
 
             sleep 15
           done
 
-          echo "::error::${name}@${version} was published and is still not on the registry."
-          echo "If this was the FIRST publish of this package, the likeliest cause is an"
-          echo "NPM_TOKEN scoped to selected packages rather than the whole"
-          echo "@particle-academy scope — such a token cannot create a package that does"
-          echo "not exist yet, and every friends package is new."
+          echo "::error::${name}@${version} published cleanly and is STILL not on the"
+          echo "registry after 150 seconds."
+          echo
+          echo "Note what this is not: the publish step succeeded, so the Trusted"
+          echo "Publisher is configured and provenance was accepted. Do not go looking"
+          echo "at credentials — that error prints from the publish step, not here."
+          echo
+          echo "This is the versioned endpoint, which is normally the FIRST to answer."
+          echo "Two and a half minutes without it is longer than any propagation lag"
+          echo "observed on this org, so treat it as npm having a bad day and confirm"
+          echo "by hand before re-running anything:"
+          echo "    npm view ${name}@${version}"
+          echo
+          echo "Do NOT re-dispatch to 'fix' it. The version is published; a second run"
+          echo "reads 200 and skips, or races the first."
           exit 1
 
   pypi:
@@ -250,6 +367,12 @@ jobs:
         working-directory: packages/py
     steps:
       - uses: actions/checkout@v5
+        with:
+          # NOTHING here writes to git. The only `git push` in this file is
+          # inside an echo, telling a human what to run. So the token checkout
+          # leaves in .git/config for the life of the job has no use — and
+          # every later step, and every action those steps call, can read it.
+          persist-credentials: false
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
@@ -351,6 +474,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # NOTHING here writes to git. The only `git push` in this file is
+          # inside an echo, telling a human what to run. So the token checkout
+          # leaves in .git/config for the life of the job has no use — and
+          # every later step, and every action those steps call, can read it.
+          persist-credentials: false
       - uses: shivammathur/setup-php@v2
         with:
           php-version: "8.4"

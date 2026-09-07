@@ -4,7 +4,8 @@
   "description": "Stripe's authoring surface for fancy-flow — the node kinds, their config schemas and their declared output shapes. React on every host; carries no executor.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Fancy-Friends/stripe.git"
+    "url": "git+https://github.com/Fancy-Friends/stripe.git",
+    "directory": "packages/ui"
   },
   "homepage": "https://github.com/Fancy-Friends/stripe#readme",
   "bugs": "https://github.com/Fancy-Friends/stripe/issues",
