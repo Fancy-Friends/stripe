@@ -26,6 +26,23 @@
  * that reason.
  *
  * Rotating the token means changing this date in the same commit.
+ *
+ * ## This token no longer publishes anything
+ *
+ * npm publishing moved to Trusted Publishing (OIDC): `publish.yml` exchanges a
+ * short-lived token for publish rights and carries no `NODE_AUTH_TOKEN` at all.
+ * Checked rather than assumed — zero occurrences of `NPM_TOKEN` in the template
+ * and in every generated repo.
+ *
+ * So this is the MANUAL FALLBACK now, and the check stays for one reason: a
+ * Trusted Publisher is configured PER PACKAGE, npm exposes no API to read that
+ * configuration, and a package without one can be published by nothing else.
+ * Losing the token loses the only route those packages have.
+ *
+ * What it is NOT is a release-blocking credential, and the alarm said it was for
+ * one commit — it was written when a scope-wide token was the publishing path,
+ * and the path changed underneath it. It would have fired four days later
+ * telling somebody publishing was broken while every release went out fine.
  */
 export const NPM_TOKEN_EXPIRES = "2026-09-19";
 
@@ -295,8 +312,17 @@ const DAY = 24 * 60 * 60 * 1000;
 /**
  * Fail BEFORE the expiry, not on it.
  *
- * Discovering a lapsed token mid-publish is discovering it after a partial
- * release across three registries, which is the one state that cannot be undone.
+ * The original reason was that discovering a lapsed token mid-publish means
+ * discovering it after a partial release across three registries. That has not
+ * been true of npm since publishing moved to OIDC — a release never reads this
+ * token — and the sentence outlived the fact by a week.
+ *
+ * The reason it still fails early is different and smaller: this is the manual
+ * FALLBACK, so it is reached for exactly when something else has already gone
+ * wrong — a package with no Trusted Publisher, or a publisher that turns out
+ * not to cover what somebody assumed. Finding it expired at that moment is
+ * finding it at the worst one, which is the same argument one step over.
+ *
  * The boundary is inclusive: exactly `WARN_DAYS` out already fails.
  */
 export function checkExpiry(iso, now = new Date(), warnDays = WARN_DAYS) {
@@ -316,8 +342,14 @@ export function checkExpiry(iso, now = new Date(), warnDays = WARN_DAYS) {
     daysLeft,
     detail:
       daysLeft < 0
-        ? `NPM_TOKEN EXPIRED on ${iso}, ${-daysLeft} days ago. Publishing is broken now.`
-        : `NPM_TOKEN expires ${iso} — ${daysLeft} day(s) left. Rotate before it lapses mid-publish.`,
+        ? `NPM_TOKEN EXPIRED on ${iso}, ${-daysLeft} days ago.\n` +
+          "      Releases are NOT broken: npm publishing uses Trusted Publishing (OIDC)\n" +
+          "      and never reads this token. What is gone is the manual FALLBACK — the\n" +
+          "      only route for a package that has no Trusted Publisher configured."
+        : `NPM_TOKEN expires ${iso} — ${daysLeft} day(s) left.\n` +
+          "      This does not gate a release: npm publishing uses Trusted Publishing\n" +
+          "      (OIDC) and carries no NODE_AUTH_TOKEN. It is the manual FALLBACK, and\n" +
+          "      the only route for a package that has no Trusted Publisher yet.",
     remedy: `${ROTATE.npm}\n  …then update NPM_TOKEN_EXPIRES in scripts/lib/canary.mjs in the same commit.`,
   };
 }
