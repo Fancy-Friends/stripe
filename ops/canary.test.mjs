@@ -157,8 +157,13 @@ test("pypi: an unknown status is a failure", () => {
 /* ── Expiry ───────────────────────────────────────────────────────────────── */
 
 test("the npm expiry is warned about BEFORE it lands, not on the day", () => {
-  // Discovering it mid-publish is discovering it after a partial release across
-  // three registries.
+  // Early, because this is the manual FALLBACK: it is reached for exactly when
+  // something else has already gone wrong, and finding it expired then is
+  // finding it at the worst moment.
+  //
+  // It used to say "discovering it mid-publish is discovering it after a partial
+  // release across three registries" — true when a scope-wide token was the
+  // publishing path, and false since OIDC. See the test below.
   const soon = checkExpiry(NPM_TOKEN_EXPIRES, new Date("2026-09-14T00:00:00Z"));
 
   assert.equal(soon.ok, false);
@@ -181,6 +186,52 @@ test("the day itself, and after it, fail", () => {
   assert.ok(past.daysLeft < 0);
 });
 
+test("the expiry message does not claim a lapse breaks publishing — it no longer does", () => {
+  // npm publishing moved to Trusted Publishing (OIDC). `publish.yml` carries no
+  // NODE_AUTH_TOKEN at all — verified: zero occurrences of NPM_TOKEN in the
+  // template and in every generated repo.
+  //
+  // So the two things this message used to say are now FALSE:
+  //   "Rotate before it lapses mid-publish."
+  //   "Publishing is broken now."
+  //
+  // A release cannot lapse mid-publish on a credential it never reads, and the
+  // packages that have a Trusted Publisher are entirely unaffected. This alarm
+  // fires four days from the day it was found and would have sent somebody to
+  // rotate a token to fix an outage that was not happening.
+  //
+  // The token is NOT dead, which is why the check stays: it is the manual
+  // fallback, and the only route for a package that has no Trusted Publisher
+  // configured yet. The message has to say that rather than the old thing.
+  const soon = checkExpiry(NPM_TOKEN_EXPIRES, new Date("2026-09-14T00:00:00Z"));
+  const past = checkExpiry(NPM_TOKEN_EXPIRES, new Date("2026-09-25T00:00:00Z"));
+
+  for (const [label, verdict] of [["warning", soon], ["expired", past]]) {
+    assert.doesNotMatch(
+      verdict.detail,
+      /mid-publish|[Pp]ublishing is broken/,
+      `${label}: still claims a lapse breaks publishing — it does not, publishing is OIDC`,
+    );
+    assert.match(
+      verdict.detail,
+      /Trusted Publish|OIDC/,
+      `${label}: does not say what actually publishes, so a reader cannot tell what is at risk`,
+    );
+    assert.match(
+      verdict.detail,
+      /fallback/i,
+      `${label}: does not say what the token IS for now`,
+    );
+  }
+});
+
+test("the expiry still FAILS, because the fallback is the only route for some packages", () => {
+  // Softening the wording must not soften the verdict. Five packages have no
+  // Trusted Publisher, and for those a token is the only way to publish at all —
+  // so losing it is a real loss, just not the one the old text described.
+  assert.equal(checkExpiry(NPM_TOKEN_EXPIRES, new Date("2026-09-14T00:00:00Z")).ok, false);
+  assert.equal(checkExpiry(NPM_TOKEN_EXPIRES, new Date("2026-09-25T00:00:00Z")).ok, false);
+});
 test("exactly at the warning boundary fails — the boundary is inclusive", () => {
   assert.equal(checkExpiry(NPM_TOKEN_EXPIRES, new Date("2026-09-12T00:00:00Z")).ok, false);
   assert.equal(checkExpiry(NPM_TOKEN_EXPIRES, new Date("2026-09-11T00:00:00Z")).ok, true);
