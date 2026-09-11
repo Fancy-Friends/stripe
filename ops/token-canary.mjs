@@ -1,17 +1,23 @@
 #!/usr/bin/env node
 /**
- * Nightly: do the four publishing secrets still work?
+ * Nightly: do the publishing secrets that still exist still work?
  *
- * A lapsed token is a silent, total publish outage across every provider repo,
- * and the way it is normally discovered is mid-release — after one of three
- * registries has already taken a version that cannot be taken back.
+ * Two registries still publish with a stored secret — PyPI and Packagist. A
+ * lapsed one is a silent publish outage across every provider repo, normally
+ * discovered mid-release, after another registry has already taken a version
+ * that cannot be taken back.
+ *
+ * npm is NOT here. It publishes through Trusted Publishing (OIDC), no workflow
+ * reads `NPM_TOKEN`, and its arm — a `whoami` probe and an expiry countdown —
+ * was retired on the owner's decision on 2026-09-11 rather than left to fail
+ * nightly about a credential nothing used. RULES.md, Publishing, has why and
+ * what a future token must be.
  *
  * **Nothing here publishes anything.** Each probe authenticates and then does
  * something the registry must refuse:
  *
  * | registry | probe | pass |
  * |---|---|---|
- * | npm | `npm whoami` | a username |
  * | Packagist | `create-package` on an ALREADY-registered repo | "already exists" |
  * | PyPI | upload endpoint with no file | 400 |
  *
@@ -19,28 +25,13 @@
  * response shape, including each way of being wrong. That is what makes this a
  * canary rather than a green tick: a canary nobody has seen fail is an untested
  * assertion, and the failures that matter here are the ones that look like
- * success — a Packagist SAFE token answering 403 like a permissions bug, an npm
- * token scoped to selected packages authenticating perfectly and unable to
- * create the new package every friends release needs.
+ * success — a Packagist SAFE token answering 403 like a permissions bug.
  *
  *   node scripts/token-canary.mjs
  *
- * Exits non-zero if any probe fails or the npm expiry is within a week.
+ * Exits non-zero if any probe fails.
  */
-import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-
-import {
-  annotationTitle,
-  checkExpiry,
-  classifyNpm,
-  classifyPackagist,
-  classifyPypi,
-  missingSecret,
-  NPM_TOKEN_EXPIRES,
-} from "./canary.mjs";
+import { annotationTitle, classifyPackagist, classifyPypi, missingSecret } from "./canary.mjs";
 
 /**
  * A repository Packagist ALREADY knows.
@@ -52,35 +43,6 @@ import {
 const PACKAGIST_PROBE_REPO = "https://github.com/Particle-Academy/fancy-connector-core";
 
 const PYPI_UPLOAD = "https://upload.pypi.org/legacy/";
-
-/**
- * `npm whoami` against a throwaway userconfig.
- *
- * The token goes into a temporary `.npmrc` that this function owns and deletes,
- * rather than into an env var npm may or may not map. Two reasons: the
- * `npm_config_//registry…:_authToken` spelling is fragile across npm versions,
- * and pointing `NPM_CONFIG_USERCONFIG` at our own file means the probe cannot
- * accidentally pass because the MACHINE happened to be logged in — which would
- * be a green tick for a token that was never used.
- */
-async function probeNpm(token) {
-  if (!token) return missingSecret("npm", "NPM_TOKEN");
-
-  const config = join(mkdtempSync(join(tmpdir(), "weaver-canary-")), ".npmrc");
-  writeFileSync(config, `//registry.npmjs.org/:_authToken=${token}\n`, "utf8");
-
-  try {
-    const result = spawnSync("npm", ["whoami", "--registry", "https://registry.npmjs.org"], {
-      encoding: "utf8",
-      shell: process.platform === "win32",
-      env: { ...process.env, NPM_CONFIG_USERCONFIG: config, NPM_TOKEN: undefined },
-    });
-
-    return classifyNpm({ code: result.status ?? 1, stdout: result.stdout, stderr: result.stderr });
-  } finally {
-    rmSync(dirname(config), { recursive: true, force: true });
-  }
-}
 
 async function probePackagist(user, token) {
   if (!user || !token) return missingSecret("packagist", "PACKAGIST_USERNAME / PACKAGIST_TOKEN");
@@ -119,23 +81,17 @@ async function probePypi(token) {
  * Every verdict the canary reports, assembled in one place.
  *
  * Exported and injectable so the WIRING can be tested, not just the pieces.
- * `checkExpiry` was thoroughly unit-tested at every boundary while nothing
- * checked that its verdict reached the exit code — drop it from this array and
- * every one of those tests still passes, and the alarm for 2026-09-19 simply
- * never fires. That is the "wired to nothing" shape this repo keeps finding.
- *
- * The clock is a parameter here and NOWHERE else. There is deliberately no env
- * override for the expiry date: a knob that silences the alarm is a knob that
- * will be used to silence the alarm.
+ * The retired expiry check was thoroughly unit-tested at every boundary while
+ * nothing checked that its verdict reached the exit code — dropping it from
+ * this array would have left every one of those tests passing and the alarm
+ * silent. That is the "wired to nothing" shape this repo keeps finding, so
+ * the set of registries is asserted, not assumed.
  */
 export async function collectVerdicts({
   env = process.env,
-  now = new Date(),
-  probes = { npm: probeNpm, packagist: probePackagist, pypi: probePypi },
+  probes = { packagist: probePackagist, pypi: probePypi },
 } = {}) {
   return [
-    { ...checkExpiry(NPM_TOKEN_EXPIRES, now), registry: "expiry" },
-    await probes.npm(env.NPM_TOKEN),
     await probes.packagist(env.PACKAGIST_USERNAME, env.PACKAGIST_TOKEN),
     await probes.pypi(env.PYPI_TOKEN),
   ];
@@ -151,7 +107,7 @@ export function report(verdicts, out = console) {
   let failed = 0;
 
   for (const verdict of verdicts) {
-    const label = (verdict.registry ?? "expiry").padEnd(10);
+    const label = (verdict.registry ?? "canary").padEnd(10);
 
     if (verdict.ok) {
       out.log(`ok    ${label} ${verdict.detail}`);
