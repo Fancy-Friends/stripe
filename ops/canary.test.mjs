@@ -8,8 +8,8 @@
  * paths that matter most are the ones that look like success:
  *
  * - a Packagist SAFE token, which answers 403 and reads like a permissions bug
- * - an npm token scoped to selected packages, which authenticates perfectly and
- *   cannot create a new package — and every friends package is new
+ * - a PyPI token that authenticates and is not account-scoped, which cannot
+ *   create a project that does not exist yet
  * - any non-2xx quietly treated as "fine"
  *
  * So the workflow shells to a script whose judgement lives here, and every
@@ -20,51 +20,7 @@ import assert from "node:assert/strict";
 
 import { collectVerdicts, report } from "./token-canary.mjs";
 import { annotationTitle } from "./canary.mjs";
-import {
-  classifyNpm,
-  classifyPackagist,
-  classifyPypi,
-  checkExpiry,
-  missingSecret,
-  NPM_TOKEN_EXPIRES,
-  ROTATE,
-} from "./canary.mjs";
-
-/* ── npm ──────────────────────────────────────────────────────────────────── */
-
-test("npm: whoami answering a username is a live token", () => {
-  const verdict = classifyNpm({ code: 0, stdout: "particle-academy-ci\n", stderr: "" });
-
-  assert.equal(verdict.ok, true);
-  assert.match(verdict.detail, /particle-academy-ci/);
-});
-
-test("npm: a green whoami must SAY it does not prove the scope", () => {
-  // The likeliest npm fault is a token limited to selected packages. It
-  // authenticates perfectly and cannot create a new one — and every friends
-  // package is new, so the failure lands on the very first publish. A canary
-  // that stayed quiet about that would be claiming coverage it does not have.
-  const verdict = classifyNpm({ code: 0, stdout: "particle-academy-ci\n", stderr: "" });
-
-  assert.match(verdict.caveat, /scope/i);
-  assert.match(verdict.caveat, /selected packages|new package/i);
-});
-
-test("npm: a failed whoami is a failure, with the rotation command", () => {
-  const verdict = classifyNpm({ code: 1, stdout: "", stderr: "npm ERR! code E401\n" });
-
-  assert.equal(verdict.ok, false);
-  assert.match(verdict.detail, /E401/);
-  assert.match(verdict.remedy, /gh secret set NPM_TOKEN --org Fancy-Friends --visibility all/);
-});
-
-test("npm: empty output is NOT a pass", () => {
-  // Exit 0 with nothing on stdout would be a green tick over an answer nobody
-  // gave — the exact shape this repo keeps refusing.
-  const verdict = classifyNpm({ code: 0, stdout: "   \n", stderr: "" });
-
-  assert.equal(verdict.ok, false);
-});
+import { classifyPackagist, classifyPypi, missingSecret, ROTATE } from "./canary.mjs";
 
 /* ── Packagist ────────────────────────────────────────────────────────────── */
 
@@ -154,89 +110,6 @@ test("pypi: an unknown status is a failure", () => {
   assert.match(verdict.detail, /maintenance/);
 });
 
-/* ── Expiry ───────────────────────────────────────────────────────────────── */
-
-test("the npm expiry is warned about BEFORE it lands, not on the day", () => {
-  // Early, because this is the manual FALLBACK: it is reached for exactly when
-  // something else has already gone wrong, and finding it expired then is
-  // finding it at the worst moment.
-  //
-  // It used to say "discovering it mid-publish is discovering it after a partial
-  // release across three registries" — true when a scope-wide token was the
-  // publishing path, and false since OIDC. See the test below.
-  const soon = checkExpiry(NPM_TOKEN_EXPIRES, new Date("2026-09-14T00:00:00Z"));
-
-  assert.equal(soon.ok, false);
-  assert.equal(soon.daysLeft, 5);
-  assert.match(soon.remedy, /gh secret set NPM_TOKEN --org Fancy-Friends --visibility all/);
-});
-
-test("comfortably before the expiry is fine, and says how long is left", () => {
-  const fine = checkExpiry(NPM_TOKEN_EXPIRES, new Date("2026-08-20T00:00:00Z"));
-
-  assert.equal(fine.ok, true);
-  assert.equal(fine.daysLeft, 30);
-});
-
-test("the day itself, and after it, fail", () => {
-  assert.equal(checkExpiry(NPM_TOKEN_EXPIRES, new Date("2026-09-19T00:00:00Z")).ok, false);
-
-  const past = checkExpiry(NPM_TOKEN_EXPIRES, new Date("2026-09-25T00:00:00Z"));
-  assert.equal(past.ok, false);
-  assert.ok(past.daysLeft < 0);
-});
-
-test("the expiry message does not claim a lapse breaks publishing — it no longer does", () => {
-  // npm publishing moved to Trusted Publishing (OIDC). `publish.yml` carries no
-  // NODE_AUTH_TOKEN at all — verified: zero occurrences of NPM_TOKEN in the
-  // template and in every generated repo.
-  //
-  // So the two things this message used to say are now FALSE:
-  //   "Rotate before it lapses mid-publish."
-  //   "Publishing is broken now."
-  //
-  // A release cannot lapse mid-publish on a credential it never reads, and the
-  // packages that have a Trusted Publisher are entirely unaffected. This alarm
-  // fires four days from the day it was found and would have sent somebody to
-  // rotate a token to fix an outage that was not happening.
-  //
-  // The token is NOT dead, which is why the check stays: it is the manual
-  // fallback, and the only route for a package that has no Trusted Publisher
-  // configured yet. The message has to say that rather than the old thing.
-  const soon = checkExpiry(NPM_TOKEN_EXPIRES, new Date("2026-09-14T00:00:00Z"));
-  const past = checkExpiry(NPM_TOKEN_EXPIRES, new Date("2026-09-25T00:00:00Z"));
-
-  for (const [label, verdict] of [["warning", soon], ["expired", past]]) {
-    assert.doesNotMatch(
-      verdict.detail,
-      /mid-publish|[Pp]ublishing is broken/,
-      `${label}: still claims a lapse breaks publishing — it does not, publishing is OIDC`,
-    );
-    assert.match(
-      verdict.detail,
-      /Trusted Publish|OIDC/,
-      `${label}: does not say what actually publishes, so a reader cannot tell what is at risk`,
-    );
-    assert.match(
-      verdict.detail,
-      /fallback/i,
-      `${label}: does not say what the token IS for now`,
-    );
-  }
-});
-
-test("the expiry still FAILS, because the fallback is the only route for some packages", () => {
-  // Softening the wording must not soften the verdict. Five packages have no
-  // Trusted Publisher, and for those a token is the only way to publish at all —
-  // so losing it is a real loss, just not the one the old text described.
-  assert.equal(checkExpiry(NPM_TOKEN_EXPIRES, new Date("2026-09-14T00:00:00Z")).ok, false);
-  assert.equal(checkExpiry(NPM_TOKEN_EXPIRES, new Date("2026-09-25T00:00:00Z")).ok, false);
-});
-test("exactly at the warning boundary fails — the boundary is inclusive", () => {
-  assert.equal(checkExpiry(NPM_TOKEN_EXPIRES, new Date("2026-09-12T00:00:00Z")).ok, false);
-  assert.equal(checkExpiry(NPM_TOKEN_EXPIRES, new Date("2026-09-11T00:00:00Z")).ok, true);
-});
-
 /* ── The canary must be able to fail ──────────────────────────────────────── */
 
 test("every classifier has a failing path, and none defaults to ok", () => {
@@ -247,19 +120,13 @@ test("every classifier has a failing path, and none defaults to ok", () => {
 
   assert.equal(classifyPackagist(nonsense).ok, false);
   assert.equal(classifyPypi(nonsense).ok, false);
-  assert.equal(classifyNpm({ code: 137, stdout: "", stderr: "" }).ok, false);
 });
 
 test("the rotation command is the FIRST line, so it can be copied straight out", () => {
   // Whoever reads the failure should not have to go looking for the fix — and
   // should not have to pick the command out of a paragraph either. The command
   // is line one; everything after it says what token to put in it.
-  assert.equal(
-    ROTATE.npm.split("\n")[0],
-    "gh secret set NPM_TOKEN --org Fancy-Friends --visibility all",
-  );
-
-  for (const key of ["npm", "pypi", "packagist"]) {
+  for (const key of ["pypi", "packagist"]) {
     assert.match(ROTATE[key].split("\n")[0], /^gh secret set \w+ --org Fancy-Friends --visibility all$/);
   }
 });
@@ -306,15 +173,15 @@ test("a missing secret explains the cause that actually bit, not just the absenc
   // visibility ALL — organization secrets simply do not reach PRIVATE
   // repositories on the Free plan, which `gh secret list --org` cannot show you.
   //
-  // "NPM_TOKEN is not set" would send whoever reads it to re-create a secret
+  // "PYPI_TOKEN is not set" would send whoever reads it to re-create a secret
   // that is already correct.
-  const verdict = missingSecret("npm", "NPM_TOKEN");
+  const verdict = missingSecret("pypi", "PYPI_TOKEN");
 
   assert.equal(verdict.ok, false);
-  assert.match(verdict.detail, /NPM_TOKEN/);
+  assert.match(verdict.detail, /PYPI_TOKEN/);
   assert.match(verdict.remedy, /private/i);
   assert.match(verdict.remedy, /free/i);
-  assert.match(verdict.remedy, /gh secret set NPM_TOKEN/);
+  assert.match(verdict.remedy, /gh secret set PYPI_TOKEN/);
 });
 
 test("the canary says which repo it is checking from", () => {
@@ -322,7 +189,7 @@ test("the canary says which repo it is checking from", () => {
   // not name one is a verdict nobody can act on — especially if the org ends up
   // with some repos public and some private, where a red canary in one and a
   // green publish in another are both correct.
-  const verdict = missingSecret("npm", "NPM_TOKEN", "Fancy-Friends/weaver.agi");
+  const verdict = missingSecret("pypi", "PYPI_TOKEN", "Fancy-Friends/weaver.agi");
 
   assert.match(verdict.detail, /Fancy-Friends\/weaver\.agi/);
 });
@@ -330,55 +197,18 @@ test("the canary says which repo it is checking from", () => {
 /* ── The alert has to be actionable at 3am ────────────────────────────────── */
 
 /**
- * Whoever reads this alert should not have to go looking.
- *
- * `gh secret set NPM_TOKEN` alone is not enough: the command is the easy half,
- * and the half that goes wrong is the token you paste into it. A granular token
- * scoped to SELECTED PACKAGES authenticates perfectly, passes `npm whoami`, and
- * cannot create a package that does not exist — and every friends package is
- * new, so that fault first appears on a publish, after a tag has been pushed.
- *
- * So the remedy carries the scope requirement in the same breath as the
- * command, because they are one instruction and not two.
+ * Whoever reads this alert should not have to go looking — and a copy-paste
+ * error in a remedy sends them to rotate a credential that was fine, which is
+ * the same wasted afternoon the missing-secret message exists to avoid.
  */
-test("the npm remedy says what KIND of token, not just where to put it", () => {
-  const remedy = ROTATE.npm;
-
-  assert.match(remedy, /gh secret set NPM_TOKEN --org Fancy-Friends --visibility all/);
-  assert.match(remedy, /granular/i, "does not say which kind of npm token to create");
-  assert.match(remedy, /read and write/i, "does not say what permission it needs");
-  assert.match(remedy, /@particle-academy/, "does not name the scope");
-  assert.match(
-    remedy,
-    /not.*selected packages|scope, not/i,
-    "does not warn against the selected-packages token, which is the fault that passes whoami",
-  );
-});
-
-test("an expiring token's remedy carries the same instruction, plus the date", () => {
-  // The expiry path is the one that fires on a schedule with nobody watching,
-  // so it is the one that most needs to be self-contained.
-  const soon = checkExpiry("2026-09-19", new Date("2026-09-15T00:00:00Z"));
-
-  assert.equal(soon.ok, false);
-  assert.match(soon.remedy, /granular/i);
-  assert.match(soon.remedy, /@particle-academy/);
-  assert.match(
-    soon.remedy,
-    /NPM_TOKEN_EXPIRES/,
-    "does not say to update the date in the same commit, so the next run alerts again",
-  );
-});
-
 test("every registry's remedy names its own secret, and none names another's", () => {
-  // A copy-paste error here sends someone to rotate a credential that was fine
-  // — which is the same wasted afternoon the missing-secret message avoids.
   for (const [registry, remedy] of Object.entries(ROTATE)) {
-    const expected = { npm: "NPM_TOKEN", pypi: "PYPI_TOKEN", packagist: "PACKAGIST_TOKEN" }[registry];
+    const expected = { pypi: "PYPI_TOKEN", packagist: "PACKAGIST_TOKEN" }[registry];
+    assert.ok(expected, `ROTATE carries a remedy for "${registry}", which the canary does not probe`);
 
     assert.match(remedy, new RegExp(`gh secret set ${expected}\\b`), `${registry} names the wrong secret`);
 
-    for (const other of ["NPM_TOKEN", "PYPI_TOKEN", "PACKAGIST_TOKEN"].filter((s) => s !== expected)) {
+    for (const other of ["NPM_TOKEN", "PYPI_TOKEN", "PACKAGIST_TOKEN"].filter((x) => x !== expected)) {
       assert.doesNotMatch(remedy, new RegExp(`gh secret set ${other}\\b`), `${registry} also names ${other}`);
     }
   }
@@ -387,14 +217,12 @@ test("every registry's remedy names its own secret, and none names another's", (
 /* ── The alarm has to reach the exit code ─────────────────────────────────── */
 
 /**
- * `checkExpiry` is unit-tested at every boundary above. None of those tests
- * would notice if its verdict stopped being COLLECTED — delete one line from
- * `collectVerdicts` and the whole suite still passes while the alarm for
- * 2026-09-19 never fires. That is the difference between testing a part and
- * testing that the part is plugged in.
+ * A classifier can be tested at every boundary and still be wired to nothing.
+ * The retired npm expiry check was the example: thoroughly unit-tested, and
+ * dropping its line from `collectVerdicts` would have left every test passing
+ * and the alarm silent. So the SET of registries is asserted, not assumed.
  */
 const HEALTHY = {
-  npm: async () => ({ ok: true, registry: "npm", detail: "authenticated as someone" }),
   packagist: async () => ({ ok: true, registry: "packagist", detail: "refused as expected" }),
   pypi: async () => ({ ok: true, registry: "pypi", detail: "refused as expected" }),
 };
@@ -406,92 +234,69 @@ function recorder() {
   return { lines, log: (l) => lines.push(String(l)), error: (l) => lines.push(String(l)) };
 }
 
-test("an expiring token fails the canary even when all three tokens are healthy", async () => {
-  // The scenario this exists for: 2026-09-19 approaches, nothing is broken yet,
-  // and the run must go RED anyway so somebody rotates it in time.
-  const verdicts = await collectVerdicts({
-    env: {},
-    now: new Date("2026-09-15T00:00:00Z"),
-    probes: HEALTHY,
-  });
-
-  const out = recorder();
-  const failed = report(verdicts, out);
-
-  assert.equal(failed, 1, "a token four days from expiry did not fail the run");
-  assert.match(out.lines.join("\n"), /expires 2026-09-19/);
-  assert.match(out.lines.join("\n"), /granular/i, "the alert did not carry the fix");
-});
-
-test("comfortably before the expiry, healthy tokens are a clean pass", async () => {
-  const verdicts = await collectVerdicts({
-    env: {},
-    now: new Date("2026-08-20T00:00:00Z"),
-    probes: HEALTHY,
-  });
-
+test("healthy tokens are a clean pass", async () => {
   const out = recorder();
 
-  assert.equal(report(verdicts, out), 0);
-  assert.match(out.lines.join("\n"), /4\/4 checks passed/);
+  assert.equal(report(await collectVerdicts({ env: {}, probes: HEALTHY }), out), 0);
+  assert.match(out.lines.join("\n"), /2\/2 checks passed/);
 });
 
-test("the expiry is always one of the verdicts, whatever the probes say", async () => {
-  const verdicts = await collectVerdicts({ env: {}, now: new Date("2026-08-20T00:00:00Z"), probes: HEALTHY });
+test("the canary probes exactly PyPI and Packagist — npm is retired, and stays retired", async () => {
+  // npm publishes through Trusted Publishing and no workflow reads NPM_TOKEN.
+  // Its arm — a whoami probe and an expiry countdown — was retired on the
+  // owner's decision on 2026-09-11 rather than left to fail every night about
+  // a credential nothing used. A stale alarm SUMMONS someone on a schedule,
+  // which is worse than a stale comment that waits to be read.
+  //
+  // Asserted rather than left to absence: a probe quietly reappearing here
+  // would bring the nightly false alarm back with it.
+  const verdicts = await collectVerdicts({ env: {}, probes: HEALTHY });
 
-  assert.equal(verdicts.length, 4, "a probe was dropped from the canary");
-  assert.ok(
-    verdicts.some((v) => v.registry === "expiry"),
-    "no expiry verdict — the 2026-09-19 alarm is wired to nothing",
+  assert.deepEqual(
+    verdicts.map((v) => v.registry).sort(),
+    ["packagist", "pypi"],
+    `the canary probes ${verdicts.length} registries: ${verdicts.map((v) => v.registry).join(", ")}`,
   );
+  assert.deepEqual(Object.keys(ROTATE).sort(), ["packagist", "pypi"], "a remedy exists for a registry nothing probes");
 });
 
 test("a green run SAYS what it did not check", async () => {
-  // A canary that implies more than it verified is worse than none. `npm
-  // whoami` proves the token is LIVE and says nothing about its SCOPE — and a
-  // selected-packages token passes it identically while being unable to create
-  // any of the packages this org publishes.
+  // A canary that implies more than it verified is worse than none. PyPI's
+  // probe proves the token AUTHENTICATES and says nothing about whether it is
+  // account-scoped — and only an account-scoped token can create a project.
+  const out = recorder();
   const verdicts = await collectVerdicts({
     env: {},
-    now: new Date("2026-08-20T00:00:00Z"),
-    probes: {
-      ...HEALTHY,
-      npm: async () => classifyNpm({ code: 0, stdout: "particle-academy\n" }),
-    },
+    probes: { ...HEALTHY, pypi: async () => classifyPypi({ status: 400, body: "" }) },
   });
-
-  const out = recorder();
 
   assert.equal(report(verdicts, out), 0);
 
   const printed = out.lines.join("\n");
   assert.match(printed, /note:/, "the pass printed no caveat at all");
-  assert.match(printed, /does NOT prove its scope/i);
-  assert.match(printed, /selected packages/i);
+  assert.match(printed, /does NOT prove/i);
+  assert.match(printed, /account-scoped/i);
 });
 
 /* ── Two different reds ───────────────────────────────────────────────────── */
 
 /**
  * "A token is dead" and "the secret never arrived" are both failures and they
- * are not the same failure. One means publishing is broken; the other means the
- * canary could not see anything, which is why it must NOT go green — but the
- * remedies are opposite, and the second one has been red nightly in weaver.agi
- * since the day the org's secrets stopped reaching a private repo on the Free
- * plan.
+ * are not the same failure. The second means the canary could not see
+ * anything, which is why it must NOT go green — but the remedies are opposite:
+ * one is a rotation, the other a repository-visibility problem no rotation fixes.
  *
  * The body already says which. The ANNOTATION title is what a triager reads
  * first, so it has to say it too.
  */
 test("a missing secret and a rejected token get different annotation titles", () => {
-  const missing = missingSecret("npm", "NPM_TOKEN");
-  const rejected = classifyNpm({ code: 1, stderr: "npm error code E401" });
+  const missing = missingSecret("pypi", "PYPI_TOKEN");
+  const rejected = classifyPypi({ status: 403, body: "Invalid or non-existent authentication information." });
 
   assert.equal(missing.ok, false);
   assert.equal(rejected.ok, false);
 
   assert.equal(missing.kind, "unreachable", "a secret that never arrived is not a token verdict");
-  assert.equal(rejected.kind, "rejected");
   assert.notEqual(annotationTitle(missing), annotationTitle(rejected));
 
   assert.match(annotationTitle(missing), /did not arrive|unreachable/i);

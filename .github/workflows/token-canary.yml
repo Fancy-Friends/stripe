@@ -33,7 +33,7 @@ on:
           an untested assertion.
         type: choice
         default: none
-        options: [none, npm, pypi, packagist]
+        options: [none, pypi, packagist]
 
 permissions:
   contents: read
@@ -44,7 +44,7 @@ concurrency:
 
 jobs:
   canary:
-    name: the four publishing secrets still work
+    name: the publishing secrets still work
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -62,7 +62,6 @@ jobs:
         env:
           # `break_it` substitutes a value that cannot work, so the failure path
           # can be exercised on demand rather than only during an incident.
-          NPM_TOKEN: ${{ inputs.break_it == 'npm' && 'npm_deliberatelyInvalidCanaryToken' || secrets.NPM_TOKEN }}
           PYPI_TOKEN: ${{ inputs.break_it == 'pypi' && 'pypi-deliberatelyInvalidCanaryToken' || secrets.PYPI_TOKEN }}
           PACKAGIST_TOKEN: ${{ inputs.break_it == 'packagist' && 'deliberatelyInvalidCanaryToken' || secrets.PACKAGIST_TOKEN }}
           PACKAGIST_USERNAME: ${{ secrets.PACKAGIST_USERNAME }}

@@ -6,9 +6,9 @@
  *
  * - A Packagist **safe** token answers 403, which reads like the account
  *   lacking rights rather than the token being the wrong KIND.
- * - An npm token scoped to **selected packages** authenticates perfectly and
- *   cannot create a package that does not exist yet. Every friends package is
- *   new, so that fault lands on the very first publish.
+ * - npm is NOT probed. It publishes through Trusted Publishing (OIDC) and no
+ *   workflow reads `NPM_TOKEN`; see RULES.md, Publishing, for why that arm
+ *   was retired rather than kept, and what a future token must be.
  * - Any non-2xx quietly read as "fine" — the same shape as a failed registry
  *   lookup counting as "up to date".
  *
@@ -18,56 +18,15 @@
  */
 
 /**
- * When NPM_TOKEN stops working.
- *
- * A literal, and the ONE place it is written down. Created 2026-08-20 with a
- * 30-day life. PYPI_TOKEN and PACKAGIST_TOKEN have no stated expiry, which is
- * UNVERIFIED rather than "never" — the canary probes them nightly for exactly
- * that reason.
- *
- * Rotating the token means changing this date in the same commit.
- *
- * ## This token no longer publishes anything
- *
- * npm publishing moved to Trusted Publishing (OIDC): `publish.yml` exchanges a
- * short-lived token for publish rights and carries no `NODE_AUTH_TOKEN` at all.
- * Checked rather than assumed — zero occurrences of `NPM_TOKEN` in the template
- * and in every generated repo.
- *
- * So this is the MANUAL FALLBACK now, and the check stays for one reason: a
- * Trusted Publisher is configured PER PACKAGE, npm exposes no API to read that
- * configuration, and a package without one can be published by nothing else.
- * Losing the token loses the only route those packages have.
- *
- * What it is NOT is a release-blocking credential, and the alarm said it was for
- * one commit — it was written when a scope-wide token was the publishing path,
- * and the path changed underneath it. It would have fired four days later
- * telling somebody publishing was broken while every release went out fine.
- */
-export const NPM_TOKEN_EXPIRES = "2026-09-19";
-
-/** How long before an expiry the canary starts failing. */
-export const WARN_DAYS = 7;
-
-/**
  * The fix, stated where the failure is read — and stated in FULL.
  *
  * The `gh secret set` line is the easy half. The half that goes wrong is the
- * token pasted into it: a granular token scoped to SELECTED PACKAGES
- * authenticates perfectly, passes `npm whoami`, and cannot create a package
- * that does not exist. Every friends package is new, so that fault first
- * appears on a publish — after a tag has been pushed, which is the one thing
- * that cannot be taken back.
+ * token pasted into it — Packagist's SAFE token is the example that bit: it
+ * authenticates, and then refuses the one endpoint a registration needs.
  *
  * Whoever reads this at 3am should not have to go looking for the rest.
  */
 export const ROTATE = {
-  npm:
-    "gh secret set NPM_TOKEN --org Fancy-Friends --visibility all\n" +
-    "  The token: npmjs.com -> Access Tokens -> Generate New Token -> GRANULAR.\n" +
-    "  Permissions: Read and write. Scope: ALL packages in @particle-academy —\n" +
-    "  the SCOPE, not selected packages. A selected-packages token passes\n" +
-    "  `npm whoami` identically and cannot create a package that does not exist.",
   pypi: "gh secret set PYPI_TOKEN --org Fancy-Friends --visibility all",
   packagist:
     "gh secret set PACKAGIST_TOKEN --org Fancy-Friends --visibility all\n" +
@@ -81,7 +40,7 @@ export const ROTATE = {
  *
  * All four arrived EMPTY on the first real run. They existed, with visibility
  * ALL: organization secrets simply do not reach PRIVATE repositories on the FREE
- * plan, and `gh secret list --org` shows nothing that would tell you. "NPM_TOKEN
+ * plan, and `gh secret list --org` shows nothing that would tell you. "PYPI_TOKEN
  * is not set" would send whoever reads it to re-create a secret that is already
  * correct.
  *
@@ -105,48 +64,6 @@ export function missingSecret(registry, name, repo = process.env.GITHUB_REPOSITO
       `repositories on GitHub's FREE plan, whatever visibility they are given. Check whether ${repo} ` +
       `is private and the org is Free before re-creating anything. If it genuinely needs setting: ` +
       `gh secret set ${key} --org Fancy-Friends --visibility all`,
-  };
-}
-
-/* ── npm ──────────────────────────────────────────────────────────────────── */
-
-/**
- * `npm whoami` — proves the token is LIVE, and nothing more.
- *
- * It does not prove the token is scope-wide, and the caveat is returned rather
- * than assumed, so a green run cannot imply more than it checked.
- */
-export function classifyNpm({ code, stdout = "", stderr = "" }) {
-  const who = stdout.trim();
-
-  if (code === 0 && who) {
-    return {
-      ok: true,
-      registry: "npm",
-      detail: `authenticated as ${who}`,
-      caveat:
-        "This proves the token is LIVE. It does NOT prove its scope. A token limited to " +
-        "selected packages answers whoami exactly like this one and cannot create a new package — " +
-        "and every friends package is new, so that fault would first appear on a publish.",
-    };
-  }
-
-  if (code === 0) {
-    return {
-      ok: false,
-      registry: "npm",
-      kind: "rejected",
-      detail: "whoami exited 0 and printed no username, which is not an answer",
-      remedy: ROTATE.npm,
-    };
-  }
-
-  return {
-    ok: false,
-    registry: "npm",
-    kind: "rejected",
-    detail: `whoami exited ${code}: ${(stderr || stdout).trim() || "no output"}`,
-    remedy: ROTATE.npm,
   };
 }
 
@@ -297,59 +214,10 @@ export function classifyPypi({ status, body = "" }) {
  * visibility problem that no amount of re-creating the secret will fix.
  */
 export function annotationTitle(verdict) {
-  const registry = verdict.registry ?? "expiry";
+  const registry = verdict.registry ?? "canary";
 
   if (verdict.ok) return registry;
   if (verdict.kind === "unreachable") return `${registry}: the secret did not arrive — nothing was checked`;
 
   return `${registry}: rejected`;
-}
-
-/* ── Expiry ───────────────────────────────────────────────────────────────── */
-
-const DAY = 24 * 60 * 60 * 1000;
-
-/**
- * Fail BEFORE the expiry, not on it.
- *
- * The original reason was that discovering a lapsed token mid-publish means
- * discovering it after a partial release across three registries. That has not
- * been true of npm since publishing moved to OIDC — a release never reads this
- * token — and the sentence outlived the fact by a week.
- *
- * The reason it still fails early is different and smaller: this is the manual
- * FALLBACK, so it is reached for exactly when something else has already gone
- * wrong — a package with no Trusted Publisher, or a publisher that turns out
- * not to cover what somebody assumed. Finding it expired at that moment is
- * finding it at the worst one, which is the same argument one step over.
- *
- * The boundary is inclusive: exactly `WARN_DAYS` out already fails.
- */
-export function checkExpiry(iso, now = new Date(), warnDays = WARN_DAYS) {
-  const expires = Date.parse(`${iso}T00:00:00Z`);
-  if (Number.isNaN(expires)) {
-    return { ok: false, detail: `NPM_TOKEN_EXPIRES is not a date: ${iso}`, remedy: ROTATE.npm };
-  }
-
-  const daysLeft = Math.floor((expires - now.getTime()) / DAY);
-
-  if (daysLeft > warnDays) {
-    return { ok: true, daysLeft, detail: `NPM_TOKEN expires ${iso} — ${daysLeft} days left` };
-  }
-
-  return {
-    ok: false,
-    daysLeft,
-    detail:
-      daysLeft < 0
-        ? `NPM_TOKEN EXPIRED on ${iso}, ${-daysLeft} days ago.\n` +
-          "      Releases are NOT broken: npm publishing uses Trusted Publishing (OIDC)\n" +
-          "      and never reads this token. What is gone is the manual FALLBACK — the\n" +
-          "      only route for a package that has no Trusted Publisher configured."
-        : `NPM_TOKEN expires ${iso} — ${daysLeft} day(s) left.\n` +
-          "      This does not gate a release: npm publishing uses Trusted Publishing\n" +
-          "      (OIDC) and carries no NODE_AUTH_TOKEN. It is the manual FALLBACK, and\n" +
-          "      the only route for a package that has no Trusted Publisher yet.",
-    remedy: `${ROTATE.npm}\n  …then update NPM_TOKEN_EXPIRES in scripts/lib/canary.mjs in the same commit.`,
-  };
 }
