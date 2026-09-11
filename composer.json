@@ -1,6 +1,6 @@
 {
   "name": "particle-academy/stripe-php",
-  "description": "Stripe for PHP — the service descriptor, its faker, its webhook verification, and one class per operation. Plain HTTP on particle-academy/fancy-connector-core; no vendor SDK.",
+  "description": "Stripe for PHP — the service descriptor, its faker, its webhook verification, one class per operation, and a fancy-flow-php executor per node. Plain HTTP on particle-academy/fancy-connector-core; no vendor SDK.",
   "type": "library",
   "keywords": [
     "stripe",
@@ -29,6 +29,12 @@
   "require-dev": {
     "laravel/pint": "^1.26",
     "pestphp/pest": "^3.0|^4.0"
+  },
+  "suggest": {
+    "particle-academy/fancy-flow-php": ">=0.51.0 <2.0 — runs this connector's nodes on a fancy-flow-php host (src/Flow/). Everything outside Flow\\ works without it."
+  },
+  "conflict": {
+    "particle-academy/fancy-flow-php": "<0.51.0 || >=2.0"
   },
   "autoload": {
     "psr-4": {
