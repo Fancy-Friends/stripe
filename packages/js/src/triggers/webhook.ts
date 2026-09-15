@@ -34,24 +34,32 @@ export const STRIPE_WEBHOOK_SCHEME: HmacScheme = {
 /**
  * Split `t=…,v1=…` into its parts.
  *
+ * EVERY signature the header carries is collected, and the delivery passes
+ * when ANY matches: a provider rolling a secret signs once per active secret,
+ * and a first-only rule refused the whole roll as a wrong secret.
+ *
  * Stripe packs the timestamp INTO the signature header (`t=…,v1=…`) rather
- * than sending one of its own. Several `v1` values arrive during a secret
- * rotation; the FIRST is taken, because failing over to a second makes "which
- * one matched" ambiguous for a window that is rare and short.
+ * than sending one of its own. Several `v1` values arrive while a secret is
+ * rolled -- one per active secret, for up to 24 hours -- and Stripe says to
+ * compare against EACH. Every `v1` is offered and the delivery passes when any
+ * matches. Until 0.3.5 only the FIRST was taken, on the reasoning that a
+ * fallback made "which one matched" ambiguous; that refused every delivery
+ * whose first signature came from the new secret, for the whole roll, and it
+ * read as a wrong secret on the day the secret was changed.
  */
 export function parseStripeSignature(raw: string): {
-  signature?: string;
+  signatures: string[];
   timestamp?: string;
 } {
-  const result: { signature?: string; timestamp?: string } = {};
+  const result: { signatures: string[]; timestamp?: string } = { signatures: [] };
 
   for (const part of raw.split(",")) {
     const [key, value] = part.trim().split("=", 2);
     if (value === undefined) continue;
 
     if (key === "t") result.timestamp = value;
-    if (key === "v1" && result.signature === undefined) {
-      result.signature = value;
+    if (key === "v1") {
+      result.signatures.push(value);
     }
   }
 
