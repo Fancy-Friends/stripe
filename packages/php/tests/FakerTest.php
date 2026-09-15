@@ -30,6 +30,12 @@ it('customer_create fakes the shape Stripe publishes', function () {
 
     $faked = StripeFaker::respond('customer_create', ['config' => $config, 'fake' => $fake]);
 
+    // Through JSON and back, because a faked EMPTY object is a stdClass — the only
+    // PHP value that spells `{}` on the wire — and `toBe` compares objects by
+    // identity. This asserts the VALUES; the `{}`-versus-`[]` spelling is what
+    // weaver's cross-runtime parity suite asserts, byte for byte.
+    $faked = json_decode((string) json_encode($faked), true, 512, JSON_THROW_ON_ERROR);
+
     expect($faked)->toBe([
         'id' => 'cus_fake_17ed1b8c2704',
         'object' => 'customer',
@@ -47,6 +53,12 @@ it('payment_intent_create fakes the shape Stripe publishes', function () {
     $fake = new FakeValues(FakeValues::seedForCall('stripe', 'payment_intent_create', $config));
 
     $faked = StripeFaker::respond('payment_intent_create', ['config' => $config, 'fake' => $fake]);
+
+    // Through JSON and back, because a faked EMPTY object is a stdClass — the only
+    // PHP value that spells `{}` on the wire — and `toBe` compares objects by
+    // identity. This asserts the VALUES; the `{}`-versus-`[]` spelling is what
+    // weaver's cross-runtime parity suite asserts, byte for byte.
+    $faked = json_decode((string) json_encode($faked), true, 512, JSON_THROW_ON_ERROR);
 
     expect($faked)->toBe([
         'id' => 'pi_fake_303f74a80be9',
@@ -70,6 +82,12 @@ it('refund_create fakes the shape Stripe publishes', function () {
 
     $faked = StripeFaker::respond('refund_create', ['config' => $config, 'fake' => $fake]);
 
+    // Through JSON and back, because a faked EMPTY object is a stdClass — the only
+    // PHP value that spells `{}` on the wire — and `toBe` compares objects by
+    // identity. This asserts the VALUES; the `{}`-versus-`[]` spelling is what
+    // weaver's cross-runtime parity suite asserts, byte for byte.
+    $faked = json_decode((string) json_encode($faked), true, 512, JSON_THROW_ON_ERROR);
+
     expect($faked)->toBe([
         'id' => 're_fake_f64f4068d60b',
         'object' => 'refund',
@@ -89,6 +107,12 @@ it('webhook fakes the shape Stripe publishes', function () {
     $fake = new FakeValues(FakeValues::seedForCall('stripe', 'webhook', $config));
 
     $faked = StripeFaker::respond('webhook', ['config' => $config, 'fake' => $fake]);
+
+    // Through JSON and back, because a faked EMPTY object is a stdClass — the only
+    // PHP value that spells `{}` on the wire — and `toBe` compares objects by
+    // identity. This asserts the VALUES; the `{}`-versus-`[]` spelling is what
+    // weaver's cross-runtime parity suite asserts, byte for byte.
+    $faked = json_decode((string) json_encode($faked), true, 512, JSON_THROW_ON_ERROR);
 
     expect($faked)->toBe([
         'id' => 'evt_fake_80bf44d16c8f',

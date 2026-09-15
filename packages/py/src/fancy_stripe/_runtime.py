@@ -365,6 +365,100 @@ def verify_hmac(
     return Verification(True)
 
 
+def verify_shared_token(
+    *,
+    raw: str,
+    headers: dict[str, str],
+    secret: str | None,
+    placement: str,
+    name: str,
+) -> Verification:
+    """Verify a delivery by a token the provider ECHOES rather than a signature it computes.
+
+    Google Calendar sends the channel's ``token`` back in ``X-Goog-Channel-Token``
+    on every notification — with an EMPTY body, so there is nothing to sign.
+    Microsoft Graph sends ``clientState`` inside every item of the
+    notification's ``value`` array. Same refusal-by-default as ``verify_hmac``,
+    same result shape, and a constant-time comparison: a token is a secret.
+
+    ``placement`` is ``header`` (then ``name`` is the header) or ``body`` (then
+    ``name`` is a dotted path into the JSON body; a segment ending in ``[]``
+    means EVERY element of that array, all of which must match — one wrong item
+    refuses the whole delivery). The reasons are the connector core's exact
+    strings, so a host logs the same words whichever runtime answered.
+    """
+    if not secret:
+        return Verification(False, "no shared token configured for this trigger")
+
+    tokens: list[Any]
+    if placement == "header":
+        tokens = [next((v for k, v in headers.items() if k.lower() == name.lower()), None)]
+    else:
+        try:
+            parsed = json.loads(raw)
+        except ValueError:
+            return Verification(False, "delivery body is not JSON")
+        tokens = _read_tokens(parsed, name.split("."))
+
+    present = [t for t in tokens if t is not None and t != ""]
+    if not present:
+        return Verification(False, "delivery carried no token")
+
+    # Every element is compared, none is skipped: a batch is accepted as a whole
+    # or refused as a whole.
+    matched = len(present) == len(tokens)
+    for token in present:
+        matched = (isinstance(token, str) and hmac.compare_digest(secret, token)) and matched
+
+    return Verification(True) if matched else Verification(False, "token did not match")
+
+
+def _read_tokens(value: Any, segments: list[str]) -> list[Any]:
+    """Every value at a dotted path; a ``[]`` segment fans out over a list. Absent is None."""
+    if not segments:
+        return [value]
+
+    head, rest = segments[0], segments[1:]
+    each_element = head.endswith("[]")
+    key = head[:-2] if each_element else head
+
+    if not isinstance(value, dict) or key not in value:
+        return [None]
+    nxt = value[key]
+
+    if not each_element:
+        return _read_tokens(nxt, rest)
+    if not isinstance(nxt, list):
+        return [None]
+
+    found: list[Any] = []
+    for element in nxt:
+        found.extend(_read_tokens(element, rest))
+
+    return found
+
+
+def handshake_response(
+    param: str | None, query: dict[str, str | list[str]], content_type: str = "text/plain"
+) -> dict[str, Any] | None:
+    """Answer a provider's challenge — Graph POSTs ``?validationToken=…`` when a
+    subscription is created and refuses to create it unless the token comes
+    back, decoded, as ``text/plain``. The pure half: what to send, or None when
+    the request is not a challenge at all (no parameter, an empty one, or a
+    trigger that declares no handshake). ``query`` is already URL-decoded by
+    the framework.
+    """
+    if param is None:
+        return None
+
+    raw = query.get(param)
+    token = raw[0] if isinstance(raw, list) and raw else raw
+    if not token or isinstance(token, list):
+        return None
+
+    return {"status": 200, "contentType": content_type, "body": token}
+
+
 def _b64(raw: bytes) -> str:
     import base64
 
