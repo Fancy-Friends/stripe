@@ -24,7 +24,7 @@
       "assign": "=",
       "timestampKey": "t",
       "signatureKey": "v1",
-      "$comment": "Stripe packs the timestamp INTO the signature header (`t=…,v1=…`) rather than sending one of its own. Several `v1` values arrive during a secret rotation; the FIRST is taken, because failing over to a second makes \"which one matched\" ambiguous for a window that is rare and short."
+      "$comment": "Stripe packs the timestamp INTO the signature header (`t=…,v1=…`) rather than sending one of its own. Several `v1` values arrive while a secret is rolled -- one per active secret, for up to 24 hours -- and Stripe says to compare against EACH. Every `v1` is offered and the delivery passes when any matches. Until 0.3.5 only the FIRST was taken, on the reasoning that a fallback made \"which one matched\" ambiguous; that refused every delivery whose first signature came from the new secret, for the whole roll, and it read as a wrong secret on the day the secret was changed."
     },
     "secretCredential": "webhookSecret"
   },

@@ -43,16 +43,24 @@ final class Webhook
     /**
      * Split `t=…,v1=…` into its parts.
      *
-     * Stripe packs the timestamp INTO the signature header (`t=…,v1=…`) rather
-     * than sending one of its own. Several `v1` values arrive during a secret
-     * rotation; the FIRST is taken, because failing over to a second makes "which
-     * one matched" ambiguous for a window that is rare and short.
+     * EVERY signature the header carries is collected, and the delivery passes
+     * when ANY matches: a provider rolling a secret signs once per active secret,
+     * and a first-only rule refused the whole roll as a wrong secret.
      *
-     * @return array{signature: ?string, timestamp: ?string}
+     * Stripe packs the timestamp INTO the signature header (`t=…,v1=…`) rather
+     * than sending one of its own. Several `v1` values arrive while a secret is
+     * rolled -- one per active secret, for up to 24 hours -- and Stripe says to
+     * compare against EACH. Every `v1` is offered and the delivery passes when any
+     * matches. Until 0.3.5 only the FIRST was taken, on the reasoning that a
+     * fallback made "which one matched" ambiguous; that refused every delivery
+     * whose first signature came from the new secret, for the whole roll, and it
+     * read as a wrong secret on the day the secret was changed.
+     *
+     * @return array{signatures: list<string>, timestamp: ?string}
      */
     public static function parseSignature(string $raw): array
     {
-        $result = ['signature' => null, 'timestamp' => null];
+        $result = ['signatures' => [], 'timestamp' => null];
 
         foreach (explode(',', $raw) as $part) {
             $pair = explode('=', trim($part), 2);
@@ -63,8 +71,8 @@ final class Webhook
             if ($pair[0] === 't') {
                 $result['timestamp'] = $pair[1];
             }
-            if ($pair[0] === 'v1' && $result['signature'] === null) {
-                $result['signature'] = $pair[1];
+            if ($pair[0] === 'v1') {
+                $result['signatures'][] = $pair[1];
             }
         }
 
@@ -96,12 +104,12 @@ final class Webhook
     ): array {
         $header = WebhookVerifier::header($headers, self::SIGNATURE_HEADER);
         $parsed = $header === null
-            ? ['signature' => null, 'timestamp' => null]
+            ? ['signatures' => [], 'timestamp' => null]
             : self::parseSignature($header);
 
         return WebhookVerifier::verify(
             raw: $raw,
-            signature: $parsed['signature'],
+            signature: $parsed['signatures'],
             secret: $webhookSecret,
             payload: self::signedPayload(...),
             algorithm: 'sha256',

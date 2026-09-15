@@ -18,6 +18,16 @@ upgraded into it can learn what changed.
 
 ## [Unreleased]
 
+## [0.3.5] — 2026-09-15
+
+### Fixed
+
+- **A rolled signing secret no longer refuses a day of deliveries.** While a webhook endpoint's secret is rolled, Stripe signs each delivery once per active secret — several `v1` values in one `Stripe-Signature` header, for up to 24 hours — and says to compare against each. The verifier took only the FIRST, so every delivery whose first signature came from the new secret was refused as `signature did not match`, which reads as a wrong secret on the day the secret was changed. Every `v1` is now offered and the delivery passes when any matches, in all three runtimes. Found in Fancy's review of the inbound-email design.
+
+### Changed
+
+- **Requires `fancy-connector-core` ≥ 0.9.0** — `particle-academy/fancy-connector-core` for php, `@particle-academy/fancy-connector-core` for js. The fix above hands the core a LIST of signatures, which 0.8.x did not accept; `CONNECTOR_API_VERSION` is unchanged at 1.
+
 ## [0.3.4] — 2026-09-12
 
 ### Changed

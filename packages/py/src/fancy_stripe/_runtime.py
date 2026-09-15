@@ -308,14 +308,17 @@ _ALGORITHMS = {"sha256": hashlib.sha256, "sha1": hashlib.sha1, "sha512": hashlib
 def verify_hmac(
     *,
     raw: str,
-    signature: str | None,
+    signature: str | list[str] | None,
     secret: str | None,
-    payload: Callable[[str, str | None], str],
+    payload: Callable[..., str],
     algorithm: str,
     encoding: str = "hex",
     tolerance: int | None = None,
     timestamp: str | None = None,
     now: int | None = None,
+    secret_encoding: str = "utf8",  # noqa: S107 — how the secret is SPELLED, not one
+    secret_prefix: str | None = None,
+    id: str | None = None,
 ) -> Verification:
     """Verify one inbound delivery.
 
@@ -327,15 +330,35 @@ def verify_hmac(
     ``raw`` must be the body EXACTLY as received. Re-serialised JSON changes key
     order and whitespace and produces a mismatch that looks precisely like a
     wrong secret.
+
+    ``secret_encoding`` says how the SECRET is spelled: ``utf8`` (the default,
+    every provider before Svix — the key is the text's bytes) or ``base64``
+    (the key is the DECODED bytes; Svix's ``whsec_<base64>``, half of whose
+    bytes are not UTF-8). ``secret_prefix`` is stripped first, and its absence
+    is a refusal, never a guess.
     """
     if not secret:
         return Verification(False, "no signing secret is configured for this connection")
-    if not signature:
+
+    # A LIST when the provider sends several — Stripe signs once per active
+    # secret while a secret is rolled, Svix's header "could be any number of
+    # signatures" — and the delivery is accepted when ANY matches. A first-only
+    # rule fails every delivery whose first signature came from the new secret.
+    offered = signature if isinstance(signature, list) else [signature]
+    candidates = [s for s in offered if isinstance(s, str) and s]
+    if not candidates:
         return Verification(False, "the delivery carried no signature")
 
     digest = _ALGORITHMS.get(algorithm)
     if digest is None:
         return Verification(False, f'unsupported signature algorithm "{algorithm}"')
+
+    # The key is checked BEFORE anything is signed, so a secret that cannot be
+    # a key is named as such rather than producing a mismatch that reads like a
+    # wrong secret.
+    key = _secret_key_bytes(secret, secret_encoding, secret_prefix)
+    if isinstance(key, Verification):
+        return key
 
     if tolerance is not None:
         if not timestamp:
@@ -355,14 +378,50 @@ def verify_hmac(
                 f"({abs(current - sent)}s old)",
             )
 
-    computed = hmac.new(secret.encode(), payload(raw, timestamp).encode(), digest)
+    # A payload that signs the delivery's ID (Svix) takes it as a third argument;
+    # the two-argument payloads every earlier scheme wrote are called as before.
+    signed = payload(raw, timestamp) if id is None else payload(raw, timestamp, id)
+    computed = hmac.new(key, signed.encode(), digest)
     expected = computed.hexdigest() if encoding == "hex" else _b64(computed.digest())
 
-    # Constant time, so a signature cannot be discovered one character at a time.
-    if not hmac.compare_digest(expected, signature):
+    # Constant time per candidate, so a signature cannot be discovered one
+    # character at a time; which candidate matched is not a secret.
+    if not any(hmac.compare_digest(expected, candidate) for candidate in candidates):
         return Verification(False, "the signature does not match")
 
     return Verification(True)
+
+
+def _secret_key_bytes(
+    secret: str,
+    secret_encoding: str = "utf8",  # noqa: S107 — how the secret is SPELLED, not one
+    secret_prefix: str | None = None,
+) -> bytes | Verification:
+    """The HMAC key a scheme's secret spells, or the refusal it earns."""
+    import base64
+    import binascii
+    import json
+    import re
+
+    material = secret
+    if secret_prefix is not None:
+        if not material.startswith(secret_prefix):
+            return Verification(
+                False, f"signing secret does not start with {json.dumps(secret_prefix)}"
+            )
+        material = material[len(secret_prefix) :]
+
+    if secret_encoding == "base64":  # noqa: S105 — a spelling, not a password
+        # Strict: a lenient decode of a KEY is a key nobody can reason about.
+        well_formed = re.fullmatch(r"[A-Za-z0-9+/]*={0,2}", material) is not None
+        if not material or len(material) % 4 != 0 or not well_formed:
+            return Verification(False, "signing secret is not valid base64")
+        try:
+            return base64.b64decode(material, validate=True)
+        except (binascii.Error, ValueError):
+            return Verification(False, "signing secret is not valid base64")
+
+    return material.encode()
 
 
 def verify_shared_token(
