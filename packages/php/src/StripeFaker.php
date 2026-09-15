@@ -51,7 +51,7 @@ final class StripeFaker
     }
 
     /** @param array<string,mixed> $config */
-    private static function CustomerCreate(array $config, mixed $fake): array
+    private static function CustomerCreate(array $config, mixed $fake): array|\stdClass
     {
         return [
         'id' => $fake->id('cus'),
@@ -64,7 +64,7 @@ final class StripeFaker
     }
 
     /** @param array<string,mixed> $config */
-    private static function PaymentIntentCreate(array $config, mixed $fake): array
+    private static function PaymentIntentCreate(array $config, mixed $fake): array|\stdClass
     {
         return (static function () use ($config, $fake): array {
         $out = [];
@@ -85,7 +85,7 @@ final class StripeFaker
     }
 
     /** @param array<string,mixed> $config */
-    private static function RefundCreate(array $config, mixed $fake): array
+    private static function RefundCreate(array $config, mixed $fake): array|\stdClass
     {
         return [
         'id' => $fake->id('re'),
@@ -100,7 +100,7 @@ final class StripeFaker
     }
 
     /** @param array<string,mixed> $config */
-    private static function Webhook(array $config, mixed $fake): array
+    private static function Webhook(array $config, mixed $fake): array|\stdClass
     {
         $selected = (string) ($config['sample'] ?? 'payment_intent.succeeded');
         $variants = [
