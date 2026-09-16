@@ -70,7 +70,7 @@ final class StripeFaker
         $out = [];
         $out['id'] = $fake->id('pi');
         $out['object'] = 'payment_intent';
-        $out['amount'] = ((($v = $config['amount'] ?? null) !== null && $v !== '') ? (int) $v : $fake->int(500, 25000));
+        $out['amount'] = ((($v = $config['amount'] ?? null) !== null && $v !== '') ? (is_numeric($v) ? (int) $v : null) : $fake->int(500, 25000));
         $out['amount_received'] = $out['amount'];
         $out['currency'] = ((($v = $config['currency'] ?? null) !== null && $v !== '') ? (string) $v : 'usd');
         $out['customer'] = ((($v = $config['customer'] ?? null) !== null && $v !== '') ? (string) $v : null);
@@ -90,7 +90,7 @@ final class StripeFaker
         return [
         'id' => $fake->id('re'),
         'object' => 'refund',
-        'amount' => ((($v = $config['amount'] ?? null) !== null && $v !== '') ? (int) $v : $fake->int(500, 25000)),
+        'amount' => ((($v = $config['amount'] ?? null) !== null && $v !== '') ? (is_numeric($v) ? (int) $v : null) : $fake->int(500, 25000)),
         'currency' => 'usd',
         'payment_intent' => ((($v = $config['paymentIntent'] ?? null) !== null && $v !== '') ? (string) $v : $fake->id('pi')),
         'reason' => ((($v = $config['reason'] ?? null) !== null && $v !== '') ? (string) $v : null),

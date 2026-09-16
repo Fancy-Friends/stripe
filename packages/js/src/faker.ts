@@ -38,7 +38,7 @@ function fakePaymentIntentCreate({ config, fake }: FakeRequest): unknown {
   const out: Record<string, unknown> = {};
   out["id"] = fake.id("pi");
   out["object"] = "payment_intent";
-  out["amount"] = (config.amount !== undefined && config.amount !== null && config.amount !== "" ? Math.trunc(Number(config.amount)) : fake.int(500, 25000));
+  out["amount"] = (config.amount !== undefined && config.amount !== null && config.amount !== "" ? (Number.isFinite(Number(config.amount)) ? Math.trunc(Number(config.amount)) : null) : fake.int(500, 25000));
   out["amount_received"] = out["amount"];
   out["currency"] = (config.currency !== undefined && config.currency !== null && config.currency !== "" ? String(config.currency) : "usd");
   out["customer"] = (config.customer !== undefined && config.customer !== null && config.customer !== "" ? String(config.customer) : null);
@@ -56,7 +56,7 @@ function fakeRefundCreate({ config, fake }: FakeRequest): unknown {
   return {
     "id": fake.id("re"),
     "object": "refund",
-    "amount": (config.amount !== undefined && config.amount !== null && config.amount !== "" ? Math.trunc(Number(config.amount)) : fake.int(500, 25000)),
+    "amount": (config.amount !== undefined && config.amount !== null && config.amount !== "" ? (Number.isFinite(Number(config.amount)) ? Math.trunc(Number(config.amount)) : null) : fake.int(500, 25000)),
     "currency": "usd",
     "payment_intent": (config.paymentIntent !== undefined && config.paymentIntent !== null && config.paymentIntent !== "" ? String(config.paymentIntent) : fake.id("pi")),
     "reason": (config.reason !== undefined && config.reason !== null && config.reason !== "" ? String(config.reason) : null),

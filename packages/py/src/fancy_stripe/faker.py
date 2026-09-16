@@ -24,6 +24,18 @@ from typing import Any
 from ._fake import FakeValues
 
 
+def _as_number(value: Any) -> float | None:
+    """The coercion an `"as": "integer" | "number"` config binding uses: a value
+    that IS a number, never int(float(...))'s uncaught ValueError on one that
+    merely looks like text (a text field's auto-generated example, before an
+    author has typed a real one).
+    """
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _customer_create(config: dict[str, Any], fake: FakeValues) -> Any:
     return {
         "id": fake.id("cus"),
@@ -44,7 +56,7 @@ def _payment_intent_create(config: dict[str, Any], fake: FakeValues) -> Any:
     out["id"] = fake.id("pi")
     out["object"] = "payment_intent"
     out["amount"] = (
-        int(float(_v))
+        (int(_n) if (_n := _as_number(_v)) is not None else None)
         if (_v := config.get("amount")) is not None and _v != ""
         else fake.int(500, 25000)
     )
@@ -82,7 +94,7 @@ def _refund_create(config: dict[str, Any], fake: FakeValues) -> Any:
         "id": fake.id("re"),
         "object": "refund",
         "amount": (
-            int(float(_v))
+            (int(_n) if (_n := _as_number(_v)) is not None else None)
             if (_v := config.get("amount")) is not None and _v != ""
             else fake.int(500, 25000)
         ),
