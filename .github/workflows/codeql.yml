@@ -1,0 +1,56 @@
+# GENERATED — from weaver's template/repo/.github/workflows/codeql.yml.
+# Fix it there and re-run `npm run provider -- stripe`; an edit here is
+# destroyed by the next protocol sync.
+
+name: CodeQL
+
+# A workflow rather than GitHub's "default setup", because default setup is a
+# repository SETTING: it cannot be rolled out by weaver's protocol sweep, so it
+# would reach the repos somebody remembered to click. This file reaches all of
+# them. The two cannot run together — enabling default setup here makes this
+# workflow's upload fail.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Weekly, so a NEW query runs over code nobody has touched since.
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    # Job-level permissions REPLACE the workflow block — `contents: read` is
+    # restated, or checkout fails in this job alone.
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # The ui and js packages, the py package, and these workflows. PHP is
+        # absent because CodeQL has no PHP extractor — not by oversight.
+        language: [javascript-typescript, python, actions]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:${{ matrix.language }}
