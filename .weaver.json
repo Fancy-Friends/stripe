@@ -9,7 +9,7 @@
     ".github/workflows/codeql.yml": "0e5db91f347aa881c89bada6eb91bae2f44ca87a69133e62c4998fe08645ee75",
     ".github/workflows/publish.yml": "64ddd08af1b77e0f584f29a33d2b484ba248d576aa0f476cbea9d2c0c1dac960",
     ".github/workflows/token-canary.yml": "614c03ebfdce343703fff64c9330162b29f51d1d5a16dfbdc483b0e468c97a8c",
-    ".github/workflows/verify-published.yml": "3d5a94ce7c0cb289be64429f47b1b54f8db11a2cbd86a2b31c3ac3a36c5d6657",
+    ".github/workflows/verify-published.yml": "d1aa980d8b4c100e42462436b7d522eb0858ad4531ad1d73ebd0706db1bb0b34",
     ".gitignore": "47a7633c70c1d1e6b3c17a782a105355accfb3495d6402f7f308256bf505e1ad",
     "AGENTS.md": "74fda1770fb7429549bef826cb93bb996291b7d021938e171379adf48a6a4285",
     "CHANGELOG.md": "edc5b617bf59de4fa2660bbba4d51ac0db7f2a659b9210a0ec7dcdea04666007",
