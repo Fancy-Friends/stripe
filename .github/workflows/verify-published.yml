@@ -49,7 +49,10 @@ jobs:
           cd "$RUNNER_TEMP/consumer"
           npm init -y >/dev/null
           npm pkg set type=module
-          npm install @particle-academy/stripe-js @particle-academy/fancy-flow --no-audit --no-fund
+          # @particle-academy/stripe-ui explicitly: @particle-academy/stripe-js declares it an OPTIONAL peer, so npm
+          # never installs it, and the script below imports it. Without it this
+          # job failed every night, on every provider, for that reason alone.
+          npm install @particle-academy/stripe-ui @particle-academy/stripe-js @particle-academy/fancy-flow --no-audit --no-fund
 
       # COPIED IN, not run across from the checkout. Node resolves a bare
       # specifier from the importing MODULE's directory, so running it in place
