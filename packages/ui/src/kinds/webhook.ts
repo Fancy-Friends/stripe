@@ -92,7 +92,7 @@ export const stripeWebhookTriggerKind: NodeKindDefinition = defineConnectorKind(
   description: "Start when Stripe reports an event.",
   icon: "◈",
   inputs: [],
-  outputs: [{ id: "out" }],
+  outputs: [{ id: "out", label: "undefined" }, { id: "ignored", label: "ignored" }],
   sideEffects: "none",
   outputShape: STRIPE_WEBHOOK_TRIGGER_OUTPUT,
   configSchema: [

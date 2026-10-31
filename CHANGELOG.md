@@ -18,6 +18,24 @@ upgraded into it can learn what changed.
 
 ## [Unreleased]
 
+## [0.3.6] — 2026-10-31
+
+### Fixed
+
+- **The webhook trigger's Event types filter now works.** It has always
+  promised that "a delivery whose type is not listed settles the trigger
+  without starting the graph", and neither the `stripe-js` nor the
+  `stripe-php` executor read it, so every event started the graph. Both now
+  split it on commas, trim each entry, and send a delivery whose `type` is
+  not listed to a new **`ignored`** port with an info log (`webhook_trigger:
+  ignoring charge.refunded — not in the configured eventTypes`). It is not
+  thrown, because Stripe fans out every event type and a failed run per
+  unwanted type would read as an incident. An empty list accepts everything,
+  as before. Behaviour matches Fancy's vendored `stripe-webhook-trigger`
+  node, which already honoured it.
+- **The trigger kind declares the `ignored` port**, so a graph can wire it
+  (or leave it unconnected, which settles the run).
+
 ## [0.3.5] — 2026-09-15
 
 ### Fixed
