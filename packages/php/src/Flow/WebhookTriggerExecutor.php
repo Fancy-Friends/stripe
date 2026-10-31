@@ -8,6 +8,7 @@ use FancyFlow\Attributes\FlowNode;
 use FancyFlow\Contracts\NodeExecutor;
 use FancyFlow\Runtime\ExecutionContext;
 use FancyFlow\Runtime\Port;
+use FancyFlow\Runtime\RunEvent;
 use ParticleAcademy\Connectors\ConnectionHost;
 use ParticleAcademy\Connectors\TriggerEvent;
 use ParticleAcademy\Stripe\Stripe;
@@ -46,6 +47,10 @@ use ParticleAcademy\Stripe\Triggers\Webhook;
     outputs: [
         [
             'id' => 'out',
+        ],
+        [
+            'id' => 'ignored',
+            'label' => 'ignored',
         ],
     ],
     sideEffects: 'none',
@@ -125,6 +130,24 @@ final class WebhookTriggerExecutor implements NodeExecutor
             $ctx->input('in'),
             $config,
         );
+
+        $wanted = array_values(array_filter(array_map(
+            trim(...),
+            explode(',', (string) ($config['eventTypes'] ?? '')),
+        )));
+        $actual = $event;
+        foreach (explode('.', 'type') as $segment) {
+            $actual = is_array($actual) ? ($actual[$segment] ?? null) : null;
+        }
+        if ($wanted !== [] && is_string($actual) && $actual !== '' && ! in_array($actual, $wanted, true)) {
+            $ctx->emit(RunEvent::log(
+                'info',
+                'webhook_trigger: ignoring '.$actual.' — not in the configured eventTypes',
+                $ctx->node->id,
+            ));
+
+            return Port::only('ignored', $event);
+        }
 
         return Port::only('out', $event);
     }

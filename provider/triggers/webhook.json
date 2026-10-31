@@ -29,6 +29,9 @@
     "secretCredential": "webhookSecret"
   },
 
+  "filter": { "config": "eventTypes", "path": "type", "separator": ",", "port": "ignored" },
+  "$filterComment": "What eventTypes has always promised: a delivery whose type is not listed settles on the `ignored` port with an info log, and the graph does not start. Implemented in 0.3.6; until then only Fancy's vendored marketplace node honoured it, and our executors published every event. Mirrors that node exactly: comma-split, trimmed, an empty list accepts everything.",
+
   "config": [
     {
       "type": "text",

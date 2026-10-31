@@ -156,6 +156,21 @@ export const stripeWebhookTriggerExecutor: NodeExecutor = async (ctx) => {
 
   const event = triggerEvent(STRIPE_WEBHOOK, connection, ctx.inputs?.in, config);
 
+  const wanted = String(config.eventTypes ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const actual = "type".split(".").reduce<unknown>((v, k) => (v !== null && typeof v === "object" ? (v as Record<string, unknown>)[k] : undefined), event);
+  if (wanted.length > 0 && typeof actual === "string" && actual !== "" && !wanted.includes(actual)) {
+    ctx.emit({
+      type: "log",
+      level: "info",
+      nodeId: ctx.node.id,
+      message: `webhook_trigger: ignoring ${actual} — not in the configured eventTypes`,
+    });
+    return { __port: "ignored", value: event };
+  }
+
   return { __port: "out", value: event };
 };
 
