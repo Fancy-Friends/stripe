@@ -319,6 +319,11 @@ def verify_hmac(
     secret_encoding: str = "utf8",  # noqa: S107 — how the secret is SPELLED, not one
     secret_prefix: str | None = None,
     id: str | None = None,
+    timestamp_unit: str = "s",
+    signs_request_line: bool = False,
+    uri: str | None = None,
+    method: str | None = None,
+    url: str | None = None,
 ) -> Verification:
     """Verify one inbound delivery.
 
@@ -366,21 +371,33 @@ def verify_hmac(
                 False, "the delivery carried no timestamp, and this scheme signs one"
             )
         try:
-            sent = int(float(timestamp))
+            sent = float(timestamp)
         except (TypeError, ValueError):
             return Verification(False, f'the delivery timestamp "{timestamp}" is not a number')
+        # Converted, never compared raw: HubSpot sends MILLISECONDS, and a
+        # millisecond value against a window in seconds refuses every delivery.
+        if timestamp_unit == "ms":
+            sent = sent / 1000
 
         current = int(time.time()) if now is None else now
         if abs(current - sent) > tolerance:
             return Verification(
                 False,
                 f"the delivery is outside the {tolerance}s replay window "
-                f"({abs(current - sent)}s old)",
+                f"({int(abs(current - sent))}s old)",
             )
 
     # A payload that signs the delivery's ID (Svix) takes it as a third argument;
     # the two-argument payloads every earlier scheme wrote are called as before.
-    signed = payload(raw, timestamp) if id is None else payload(raw, timestamp, id)
+    # HubSpot v3 signs the REQUEST LINE: refused by name without it, and the
+    # uri normalised here, once, by the scheme's rule.
+    if signs_request_line:
+        if not method or not url:
+            return Verification(False, "the delivery carried no request method or url")
+        line = {"method": method, "uri": normalise_signed_uri(url, uri) if uri else url}
+        signed = payload(raw, timestamp, id, line)
+    else:
+        signed = payload(raw, timestamp) if id is None else payload(raw, timestamp, id)
     computed = hmac.new(key, signed.encode(), digest)
     expected = computed.hexdigest() if encoding == "hex" else _b64(computed.digest())
 
@@ -390,6 +407,34 @@ def verify_hmac(
         return Verification(False, "the signature does not match")
 
     return Verification(True)
+
+
+_HUBSPOT_V3_DECODE = {
+    "%3A": ":", "%2F": "/", "%3F": "?", "%40": "@", "%21": "!", "%24": "$",
+    "%27": "'", "%28": "(", "%29": ")", "%2A": "*", "%2C": ",", "%3B": ";",
+}
+
+
+def normalise_signed_uri(url: str, rule: str) -> str:
+    """The URI a provider signs, from the URL the request arrived on.
+
+    ``hubspot-v3``: only the QUERY portion is percent-decoded, and only for
+    twelve escapes (case-insensitive); never its leading ``?``; any
+    ``#fragment`` dropped. ``%26`` and ``%3D`` stay as sent. The twin of the
+    core's ``normaliseSignedUri``.
+    """
+    import re
+
+    if rule != "hubspot-v3":
+        raise ValueError(f"unknown signed-uri rule {rule!r}")
+    without_fragment = url.split("#", 1)[0]
+    base, sep, query = without_fragment.partition("?")
+    if not sep:
+        return without_fragment
+    decoded = re.sub(
+        r"%[0-9A-Fa-f]{2}", lambda m: _HUBSPOT_V3_DECODE.get(m.group(0).upper(), m.group(0)), query
+    )
+    return f"{base}?{decoded}"
 
 
 def _secret_key_bytes(
