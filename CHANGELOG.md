@@ -18,6 +18,18 @@ upgraded into it can learn what changed.
 
 ## [Unreleased]
 
+## [0.3.7] — 2026-11-05
+
+### Fixed
+
+- **PHP: a `metadata` map passed as an OBJECT is read, not dropped.** The
+  generated PHP read a map that arrived as a decoded JSON OBJECT (`stdClass`,
+  e.g. an upstream node's value or `json_decode(..., false)`) as "not an
+  array" and sent it EMPTY, without an error: silent data loss. It now reads
+  the object's properties. **Affected:** PHP callers passing the map as an
+  object. **Not affected:** callers passing an array, which always worked;
+  they need do nothing. TypeScript and Python were never affected.
+
 ## [0.3.6] — 2026-10-31
 
 ### Fixed

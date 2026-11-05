@@ -90,6 +90,9 @@ final class PaymentIntentCreate
     /** @return array<string,string> */
     private static function metadataForm(mixed $value): array
     {
+        if (is_object($value)) {
+            $value = get_object_vars($value);
+        }
         if (! is_array($value)) {
             return [];
         }
