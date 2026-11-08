@@ -20,8 +20,8 @@ return [
 
     'credentials' => [
         // Secret key (per connected account, secret).
-        'secretKey' => env('STRIPE_SECRETKEY'),
+        'secretKey' => env('STRIPE_SECRET_KEY', env('STRIPE_SECRETKEY')),
         // Webhook signing secret (per connected account, secret).
-        'webhookSecret' => env('STRIPE_WEBHOOKSECRET'),
+        'webhookSecret' => env('STRIPE_WEBHOOK_SECRET', env('STRIPE_WEBHOOKSECRET')),
     ],
 ];

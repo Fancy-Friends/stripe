@@ -18,6 +18,20 @@ upgraded into it can learn what changed.
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-11-08
+
+### Fixed
+
+- **The Laravel config's environment variable names now split camelCase**,
+  as documented. **Consumer action: none.** The old unsplit names are still
+  read as a fallback, so an app that set them keeps working; the new names
+  are preferred.
+
+  | Preferred | Still read |
+  |---|---|
+  | `STRIPE_SECRET_KEY` | `STRIPE_SECRETKEY` |
+  | `STRIPE_WEBHOOK_SECRET` | `STRIPE_WEBHOOKSECRET` |
+
 ## [0.4.0] — 2026-11-08
 
 ### Added
