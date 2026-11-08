@@ -27,11 +27,13 @@
     "particle-academy/fancy-connector-core": ">=0.9.0 <2.0"
   },
   "require-dev": {
+    "laravel/framework": "^13.0",
     "laravel/pint": "^1.26",
-    "pestphp/pest": "^3.0|^4.0"
+    "pestphp/pest": "^5.0"
   },
   "suggest": {
-    "particle-academy/fancy-flow-php": ">=0.51.0 <2.0 — runs this connector's nodes on a fancy-flow-php host (src/Flow/). Everything outside Flow\\ works without it."
+    "particle-academy/fancy-flow-php": ">=0.51.0 <2.0 — runs this connector's nodes on a fancy-flow-php host (src/Flow/). Everything outside Flow\\ works without it.",
+    "laravel/framework": "^13.0 — the Laravel integration (src/Laravel/): a service provider, config, verified webhook routes, and Stripe::fake(). Everything outside Laravel\\ works without it."
   },
   "conflict": {
     "particle-academy/fancy-flow-php": "<0.51.0 || >=2.0"
@@ -50,6 +52,16 @@
     "test": "pest --test-directory=packages/php/tests",
     "lint": "find packages/php -name '*.php' -print0 | xargs -0 -n1 php -l",
     "format": "pint"
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "ParticleAcademy\\Stripe\\Laravel\\StripeServiceProvider"
+      ],
+      "aliases": {
+        "Stripe": "ParticleAcademy\\Stripe\\Laravel\\Stripe"
+      }
+    }
   },
   "config": {
     "sort-packages": true,
