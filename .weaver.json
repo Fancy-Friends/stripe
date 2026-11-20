@@ -5,9 +5,9 @@
   "connectorApi": 1,
   "files": {
     ".gitattributes": "3b81cb009a60ff7f0762f24c5d336a4afd0284f2716e54c4823da08d839f664c",
-    ".github/workflows/ci.yml": "8b15935d4bafd450d58fb2806dbcc000ba054b802c6beadee117f667604b8c68",
+    ".github/workflows/ci.yml": "dbcb0249921e1264a5d179787d06e404b26f650bacb9a6eea1ff48747ccf438b",
     ".github/workflows/codeql.yml": "0e5db91f347aa881c89bada6eb91bae2f44ca87a69133e62c4998fe08645ee75",
-    ".github/workflows/publish.yml": "64ddd08af1b77e0f584f29a33d2b484ba248d576aa0f476cbea9d2c0c1dac960",
+    ".github/workflows/publish.yml": "d4c3011eb53cb909b0e73067db1d88ceff56f285f68dbe37c7e5725b1af8eab2",
     ".github/workflows/token-canary.yml": "614c03ebfdce343703fff64c9330162b29f51d1d5a16dfbdc483b0e468c97a8c",
     ".github/workflows/verify-published.yml": "d1aa980d8b4c100e42462436b7d522eb0858ad4531ad1d73ebd0706db1bb0b34",
     ".gitignore": "47a7633c70c1d1e6b3c17a782a105355accfb3495d6402f7f308256bf505e1ad",
